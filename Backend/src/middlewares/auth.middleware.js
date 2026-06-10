@@ -20,6 +20,7 @@ export const authMiddleware = async (req, res, next) => {
 
     next();
   } catch (error) {
+    console.error("Clerk auth error:", error);
     return next(new ApiError(401, "Unauthorized: Invalid token"));
   }
 };
