@@ -1,10 +1,10 @@
-# 🌳 GreenLens – Track, Earn, and Give Back to the Planet 🌱
+# GreenLens – Track, Earn, and Give Back to the Planet 
 
 GreenLens is a modular, smart sustainability platform that helps users understand, track, and offset their carbon footprint. By logging daily activities like travel and energy conservation, users earn **Green Tokens** minted via smart contracts on the Ethereum Sepolia Testnet.
 
 ---
 
-## 🚀 Live Deployments
+## Live Deployments
 
 * **Frontend Client (Vercel)**: [greenlens-spuk.vercel.com](https://greenlens-spuk.vercel.com)
 * **Express Gateway Backend (Render)**: [greenlens-express-backend.onrender.com](https://greenlens-express-backend.onrender.com)
@@ -13,7 +13,7 @@ GreenLens is a modular, smart sustainability platform that helps users understan
 
 ---
 
-## 🌟 Core Features
+## Core Features
 
 * **Activity Carbon Tracking**: Log travel distances, electricity units, and plant counts.
 * **AI OCR Invoice Scanning**: Auto-parse utility bills (PDFs/Images) using `pytesseract` and `fitz` OCR to extract data like Customer ID and usage.
@@ -23,7 +23,7 @@ GreenLens is a modular, smart sustainability platform that helps users understan
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 * **Frontend**: Next.js (React), TailwindCSS, Framer Motion, Recharts
 * **API Gateway**: Node.js + Express + MongoDB (Mongoose)
@@ -34,7 +34,7 @@ GreenLens is a modular, smart sustainability platform that helps users understan
 
 ---
 
-## 📋 Environment Checklist
+## Environment Checklist
 
 Ensure the environment files are configured prior to running the applications.
 
