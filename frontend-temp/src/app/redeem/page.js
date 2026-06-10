@@ -1,9 +1,8 @@
 'use client';
 import React, { useState, useEffect } from "react";
 import { products } from "../data/product.js";
-import { ethers } from "ethers";
-import { getContract } from "../../utils/contract";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@clerk/nextjs";
 import {
   ArrowLeft, User, Mail, Phone, Package, ListOrdered,
   MapPin, UploadCloud, FileText, CheckCircle, Trash2,
@@ -29,13 +28,13 @@ const validateEmail = (s) =>
 
 const SubmitPage = () => {
   const router = useRouter();
+  const { getToken } = useAuth();
   const [form, setForm] = useState(initialForm);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [submittedId, setSubmittedId] = useState(null);
   const [burning, setBurning] = useState(false);
-  const [walletAddress, setWalletAddress] = useState(null);
-  const [walletBalance, setWalletBalance] = useState("0");
+  const [walletBalance, setWalletBalance] = useState(0);
 
   // Fetch product details for dynamic preview
   const selectedProduct = products.find((p) => p.id === Number(form.productId)) || products[0];
@@ -53,78 +52,89 @@ const SubmitPage = () => {
       }
     }
 
-    // Check if wallet is connected
-    checkWallet();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    loadSimulatedTokens();
   }, []);
 
-  const checkWallet = async () => {
-    if (typeof window !== "undefined" && window.ethereum) {
-      try {
-        const accounts = await window.ethereum.request({ method: "eth_accounts" });
-        if (accounts && accounts.length > 0) {
-          setWalletAddress(accounts[0]);
-          fetchBalance(accounts[0]);
-        }
-      } catch (error) {
-        console.error("Wallet check failed", error);
-      }
-    }
-  };
-
-  const fetchBalance = async (address) => {
+  const loadSimulatedTokens = async () => {
     try {
-      const contractData = await getContract();
-      const contract = contractData.contract || contractData;
-      if (!contract) return;
-      const bal = await contract.balanceOf(address);
-      const formatted = ethers.formatUnits(bal, 18);
-      setWalletBalance(parseFloat(formatted).toFixed(2));
+      const token = await getToken();
+      if (token) {
+        const response = await fetch('http://localhost:8080/api/v1/users/dashboard', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        const resData = await response.json();
+        if (resData.success && resData.data) {
+          const balance = resData.data.totalGreenTokens;
+          setWalletBalance(balance);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('simulatedTokens', balance.toString());
+          }
+          return;
+        }
+      }
     } catch (err) {
-      console.error("Balance fetch failed", err);
+      console.warn("Backend offline or error fetching balance, falling back to local:", err);
+    }
+
+    if (typeof window !== 'undefined') {
+      const simTokens = parseFloat(localStorage.getItem('simulatedTokens') || '0');
+      setWalletBalance(simTokens);
     }
   };
 
   const burnTokens = async (val) => {
     setBurning(true);
     try {
-      const contractData = await getContract();
-      const contract = contractData.contract || contractData;
+      const token = await getToken();
+      if (token) {
+        const response = await fetch('http://localhost:8080/api/v1/users/redeem', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            amount: val,
+            productId: selectedProduct?.id,
+            productName: selectedProduct?.name
+          })
+        });
 
-      if (!contract) {
-        throw new Error("Contract not initialized");
-      }
-
-      let provider = contractData.provider;
-      if (!provider) {
-        if (!window.ethereum) {
-          throw new Error("MetaMask not found");
+        if (!response.ok) {
+          const errData = await response.json();
+          throw new Error(errData.message || "insufficient");
         }
-        provider = new ethers.BrowserProvider(window.ethereum);
+
+        const resData = await response.json();
+        if (resData.success) {
+          const updated = resData.data.newTotalTokens;
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('simulatedTokens', updated.toString());
+          }
+          setWalletBalance(updated);
+        }
+      } else {
+        if (typeof window !== 'undefined') {
+          const currentSimulated = parseFloat(localStorage.getItem('simulatedTokens') || '0');
+          if (currentSimulated < val) {
+            throw new Error("insufficient");
+          }
+          const updated = currentSimulated - val;
+          localStorage.setItem('simulatedTokens', updated.toString());
+          setWalletBalance(updated);
+        }
       }
 
-      const contractAddress = contract.target || contract.address;
-      const code = await provider.getCode(contractAddress);
-      if (code === '0x') {
-        throw new Error("Contract not deployed on this network");
-      }
-
-      const amount = ethers.parseUnits(val.toString(), 18);
-      const tx = await contract.burn(amount);
-      await tx.wait();
-
-      alert(`🔥 ${val} Green Tokens burned successfully!`);
+      alert(`🔥 ${val} Green Tokens successfully redeemed & burned!`);
     } catch (error) {
       console.error("Error burning tokens:", error);
       let errorMsg = "Failed to burn tokens";
-      if (error.message.includes("not deployed")) {
-        errorMsg = "Contract not found on current network";
-      } else if (error.code === "ACTION_REJECTED") {
-        errorMsg = "Transaction rejected by user";
-      } else if (error.message.includes("insufficient")) {
+      if (error.message.includes("insufficient") || error.message.includes("Insufficient")) {
         errorMsg = "Insufficient token balance";
-      } else if (error.message.includes("MetaMask")) {
-        errorMsg = "MetaMask connection error";
+      } else {
+        errorMsg = error.message;
       }
       alert(`❌ ${errorMsg}`);
       throw error;
@@ -213,9 +223,7 @@ const SubmitPage = () => {
     }));
 
     // Refresh submissions lists and balance
-    if (walletAddress) {
-      fetchBalance(walletAddress);
-    }
+    loadSimulatedTokens();
   };
 
   const handleReset = () => {
@@ -416,7 +424,7 @@ const SubmitPage = () => {
                   className="checkbox checkbox-emerald rounded-lg border-2 border-emerald-600 checked:bg-emerald-600"
                 />
                 <label htmlFor="agree" className="text-xs sm:text-sm font-bold text-emerald-950">
-                  I confirm that my details are correct and authorize GreenLens to burn {totalCost} GT from my wallet. *
+                  I confirm that my details are correct and authorize GreenLens to redeem and burn {totalCost} GT from my balance. *
                 </label>
               </div>
               {errors.agree && <p className="text-xs text-rose-600 font-semibold">{errors.agree}</p>}
@@ -431,7 +439,7 @@ const SubmitPage = () => {
                   {loading || burning ? (
                     <>
                       <span className="loading loading-spinner loading-sm" />
-                      Processing Web3 Transaction...
+                      Processing Eco Redemption...
                     </>
                   ) : (
                     <>
@@ -507,45 +515,31 @@ const SubmitPage = () => {
               </div>
             </div>
 
-            {/* Web3 Wallet status preview */}
+            {/* Green Tokens balance status preview */}
             <div className="mt-4 border border-slate-100 bg-slate-50/50 p-4 rounded-2xl flex flex-col gap-3">
               <div className="flex items-center gap-2">
                 <Wallet className="w-4 h-4 text-emerald-700" />
-                <span className="text-xs font-bold text-emerald-950">Wallet Connection Status</span>
+                <span className="text-xs font-bold text-emerald-950">Ecosystem Balance Status</span>
               </div>
-              {walletAddress ? (
-                <div className="space-y-1.5">
-                  <div className="flex justify-between text-[11px] font-semibold text-slate-500">
-                    <span>Address</span>
-                    <span className="font-bold text-slate-700">
-                      {walletAddress.substring(0, 6)}...{walletAddress.substring(walletAddress.length - 4)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-[11px] font-semibold text-slate-500">
-                    <span>Available Balance</span>
-                    <span className="font-extrabold text-emerald-700">{walletBalance} GT</span>
-                  </div>
-                  {parseFloat(walletBalance) < totalCost ? (
-                    <p className="text-[10px] text-rose-600 font-bold bg-rose-50 p-1.5 rounded-lg border border-rose-100 mt-2">
-                      ⚠️ Insufficient tokens to complete purchase.
-                    </p>
-                  ) : (
-                    <p className="text-[10px] text-emerald-700 font-bold bg-emerald-50 p-1.5 rounded-lg border border-emerald-100 mt-2">
-                      ✓ Balance verified. Wallet is ready.
-                    </p>
-                  )}
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-[11px] font-semibold text-slate-500">
+                  <span>Balance Type</span>
+                  <span className="font-bold text-slate-700">ML Calculated Tokens</span>
                 </div>
-              ) : (
-                <div className="text-center py-2">
-                  <p className="text-xs text-slate-400 font-semibold mb-3">No wallet connected.</p>
-                  <button
-                    onClick={checkWallet}
-                    className="bg-emerald-600 text-white font-extrabold text-[10px] uppercase tracking-wider py-2 px-3 rounded-lg hover:bg-emerald-700 transition"
-                  >
-                    Check Wallet Balance
-                  </button>
+                <div className="flex justify-between text-[11px] font-semibold text-slate-500">
+                  <span>Available Balance</span>
+                  <span className="font-extrabold text-emerald-700">{walletBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })} GT</span>
                 </div>
-              )}
+                {walletBalance < totalCost ? (
+                  <p className="text-[10px] text-rose-600 font-bold bg-rose-50 p-1.5 rounded-lg border border-rose-100 mt-2">
+                    ⚠️ Insufficient tokens to complete purchase.
+                  </p>
+                ) : (
+                  <p className="text-[10px] text-emerald-700 font-bold bg-emerald-50 p-1.5 rounded-lg border border-emerald-100 mt-2">
+                    ✓ Balance verified. Ready to redeem.
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </div>

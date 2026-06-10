@@ -17,9 +17,9 @@ const userSchema = new Schema(
     fullName: { type: String, required: true },
     avatarUrl: { type: String },
 
-    adhaar: { type: String, required: true, unique: true },
+    adhaar: { type: String, unique: true, sparse: true },
     addressId: { type: Schema.Types.ObjectId, ref: "Address" },
-    ph1: { type: String, required: true },
+    ph1: { type: String },
     ph2: { type: String },
     dob: { type: Date },
     gender: {
@@ -166,6 +166,21 @@ const forestationSchema = new Schema(
   }
 );
 
+// 🚗 TRIP LOG
+const tripLogSchema = new Schema(
+  {
+    userID: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    mode: { type: String, required: true },
+    distance: { type: Number, required: true },
+    isEV: { type: Boolean, default: false },
+  },
+  { timestamps: true }
+);
+
 export const User = mongoose.models.User || mongoose.model("User", userSchema);
 export const Address =
   mongoose.models.Address || mongoose.model("Address", addressSchema);
@@ -181,3 +196,5 @@ export const VehicleRun =
 export const Forestation =
   mongoose.models.Forestation ||
   mongoose.model("Forestation", forestationSchema);
+export const TripLog =
+  mongoose.models.TripLog || mongoose.model("TripLog", tripLogSchema);

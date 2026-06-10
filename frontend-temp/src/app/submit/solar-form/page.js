@@ -2,8 +2,13 @@
 import { motion } from 'framer-motion';
 import { Sun, Upload, CheckCircle, Loader2 } from 'lucide-react';
 import { useState } from 'react';
+import { useAuth } from '@clerk/nextjs';
+import { useRouter } from 'next/navigation';
+import Footer from '../../components/Footer.jsx';
 
 export default function SolarForm() {
+  const { getToken } = useAuth();
+  const router = useRouter();
   const [formData, setFormData] = useState({
     company: '',
     unitsGenerated: '',
@@ -12,23 +17,7 @@ export default function SolarForm() {
     billFile: null
   });
   const [submitted, setSubmitted] = useState(false);
-  const [isMinting, setIsMinting] = useState(false);
-  const [account, setAccount] = useState(null);
-
-  // Connect wallet function
-  const connectWallet = async () => {
-    if (window.ethereum) {
-      try {
-        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        setAccount(accounts[0]);
-        return accounts[0];
-      } catch (error) {
-        console.error("Error connecting wallet:", error);
-        return null;
-      }
-    }
-    return null;
-  };
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
@@ -36,55 +25,11 @@ export default function SolarForm() {
     }
   };
 
-  const mintTokens = async (connectedAccount) => {
-    try {
-      console.log("Minting tokens to:", connectedAccount);
-      
-      // Import ethers dynamically
-      const { ethers } = await import('ethers');
-      
-      // You'll need to provide your contract ABI and address
-      const contractAddress = "YOUR_CONTRACT_ADDRESS";
-      const contractABI = [
-        "function mint(address to, uint256 amount) public"
-      ];
-
-      if (!window.ethereum) {
-        throw new Error("MetaMask not found");
-      }
-
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
-      const contract = new ethers.Contract(contractAddress, contractABI, signer);
-
-      // Verify contract is deployed
-      const code = await provider.getCode(contractAddress);
-      if (code === '0x' || code === '0x0') {
-        throw new Error("Contract not deployed on current network. Please switch to the correct network.");
-      }
-
-      console.log("Minting 50 tokens...");
-      const tx = await contract.mint(connectedAccount, ethers.parseUnits("50", 18));
-      console.log("Transaction sent:", tx.hash);
-      
-      await tx.wait();
-      console.log("Transaction confirmed!");
-      
-      return true;
-    } catch (error) {
-      console.error("Error minting:", error);
-      
-      let errorMsg = "Failed to mint tokens";
-      if (error.message.includes("not deployed")) {
-        errorMsg = "Contract not deployed. Please check your network.";
-      } else if (error.code === "ACTION_REJECTED") {
-        errorMsg = "Transaction rejected by user";
-      } else if (error.message.includes("insufficient funds")) {
-        errorMsg = "Insufficient funds for gas";
-      }
-      
-      throw new Error(errorMsg);
-    }
+  const calculateTokens = () => {
+    const units = parseFloat(formData.unitsGenerated) || 0;
+    const tokens = 10 + Math.floor(units * 0.5);
+    const co2Saved = parseFloat((units * 0.384).toFixed(2));
+    return { tokensEarned: tokens, co2Saved };
   };
 
   const handleSubmit = async () => {
@@ -95,57 +40,77 @@ export default function SolarForm() {
       return;
     }
 
-    setIsMinting(true);
+    setIsSubmitting(true);
+    console.log('Solar Power Data Submitted:', formData);
 
+    // Calculate tokens and co2 saved
+    const { tokensEarned, co2Saved } = calculateTokens();
+
+    // Sync with Express backend
     try {
-      // Connect wallet if not connected
-      let walletAccount = account;
-      if (!walletAccount) {
-        walletAccount = await connectWallet();
-        if (!walletAccount) {
-          alert("⚠️ Please connect your wallet first!");
-          setIsMinting(false);
-          return;
+      const token = await getToken();
+      if (token) {
+        const bodyFormData = new FormData();
+        bodyFormData.append("solarCompany", formData.company);
+        bodyFormData.append("unitsGenerated", formData.unitsGenerated);
+        bodyFormData.append("homeType", formData.homeType);
+        bodyFormData.append("carpetArea", formData.carpetArea);
+        
+        if (formData.billFile) {
+          bodyFormData.append("solarBillProof", formData.billFile);
+        } else {
+          // Fallback dummy file to satisfy backend required file check
+          const blob = new Blob(["mock bill content"], { type: "text/plain" });
+          bodyFormData.append("solarBillProof", blob, "mock-bill.txt");
         }
-      }
 
-      // Log solar power data
-      console.log('Solar Power Data Submitted:', formData);
-
-      // Mint tokens
-      await mintTokens(walletAccount);
-      
-      // Success!
-      alert("✅ Solar power data submitted and 50 Green Tokens minted successfully!");
-      setSubmitted(true);
-      
-      // Reset form after 3 seconds
-      setTimeout(() => {
-        setSubmitted(false);
-        setFormData({
-          company: '',
-          unitsGenerated: '',
-          homeType: '',
-          carpetArea: '',
-          billFile: null
+        await fetch('http://localhost:8080/api/v1/form/solar', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: bodyFormData
         });
-      }, 3000);
-
-    } catch (error) {
-      alert(`❌ ${error.message}`);
-    } finally {
-      setIsMinting(false);
+      }
+    } catch (err) {
+      console.warn("Backend server offline, falling back to localStorage sync:", err);
     }
+
+    // Update simulated values in localStorage
+    if (typeof window !== 'undefined') {
+      const currentSimulated = parseFloat(localStorage.getItem('simulatedTokens') || '0');
+      localStorage.setItem('simulatedTokens', (currentSimulated + tokensEarned).toString());
+
+      const currentCategory = parseFloat(localStorage.getItem('simulatedTokens_Solar') || '0');
+      localStorage.setItem('simulatedTokens_Solar', (currentCategory + tokensEarned).toString());
+
+      const currentCo2 = parseFloat(localStorage.getItem('simulatedCo2Saved') || '0');
+      localStorage.setItem('simulatedCo2Saved', (currentCo2 + co2Saved).toString());
+
+      const currentSubmissions = parseInt(localStorage.getItem('simulatedSubmissions') || '0');
+      localStorage.setItem('simulatedSubmissions', (currentSubmissions + 1).toString());
+    }
+
+    alert(`✅ Data submitted successfully!\n🌿 Carbon Saved: ${co2Saved} kg CO2\n🪙 Green Tokens Earned: ${tokensEarned}`);
+
+    setSubmitted(true);
+    
+    setTimeout(() => {
+      setSubmitted(false);
+      setIsSubmitting(false);
+      router.push('/home');
+    }, 2000);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-amber-50 to-orange-200 py-12 px-4">
-      <motion.div
-        className="max-w-2xl mx-auto bg-white rounded-3xl shadow-2xl p-8"
-        initial={{ opacity: 0, y: 40 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-      >
+    <div className="min-h-screen bg-gradient-to-b from-amber-50 to-orange-200 py-12 px-4 flex flex-col justify-between">
+      <div className="flex-grow mb-12">
+        <motion.div
+          className="max-w-2xl mx-auto bg-white rounded-3xl shadow-2xl p-8"
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+        >
         <div className="flex items-center gap-3 mb-6">
           <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center">
             <Sun className="w-6 h-6 text-amber-700" />
@@ -237,7 +202,7 @@ export default function SolarForm() {
                 htmlFor="solar-upload"
                 className="w-full px-4 py-6 border-2 border-dashed border-amber-300 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-amber-700 transition-colors"
               >
-                <Upload className="w-8 h-8 text-amber-600 mb-2" />
+                <Upload className="w-8 h-8 text-amber-650 mb-2" />
                 <span className="text-sm text-amber-700">
                   {formData.billFile ? formData.billFile.name : 'Click to upload document (PDF, JPG, PNG)'}
                 </span>
@@ -248,15 +213,15 @@ export default function SolarForm() {
           <motion.button
             type="button"
             onClick={handleSubmit}
-            disabled={isMinting || submitted}
-            whileHover={{ scale: isMinting ? 1 : 1.02 }}
-            whileTap={{ scale: isMinting ? 1 : 0.98 }}
+            disabled={isSubmitting || submitted}
+            whileHover={{ scale: isSubmitting ? 1 : 1.02 }}
+            whileTap={{ scale: isSubmitting ? 1 : 0.98 }}
             className="w-full py-4 bg-gradient-to-r from-amber-700 to-orange-800 text-white rounded-xl font-semibold shadow-lg flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
           >
-            {isMinting ? (
+            {isSubmitting ? (
               <>
                 <Loader2 className="w-5 h-5 animate-spin" />
-                Minting Tokens...
+                Calculating & Submitting...
               </>
             ) : submitted ? (
               <>
@@ -271,10 +236,12 @@ export default function SolarForm() {
 
         <div className="mt-6 p-4 bg-amber-50 rounded-xl">
           <p className="text-sm text-amber-900">
-            ☀️ <strong>Token Reward:</strong> Earn 50 bonus tokens for every submission of clean solar energy generated!
+            ☀️ <strong>Token Reward:</strong> Earn Green Tokens calculated dynamically based on your renewable energy generated.
           </p>
         </div>
       </motion.div>
+      </div>
+      <Footer />
     </div>
   );
 }

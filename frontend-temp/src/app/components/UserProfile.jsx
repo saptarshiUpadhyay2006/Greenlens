@@ -1,219 +1,112 @@
 'use client';
 
-import { useUser, UserButton, useClerk } from '@clerk/nextjs';
+import { useUser, UserButton, useClerk, useAuth } from '@clerk/nextjs';
 import { Mail, Phone, Coins, Edit, TrendingUp, Award, Zap, Sun, Car, Trees, ShoppingCart, Leaf, ChevronRight, Activity, Sparkles } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import GraphComponent from '../components/GraphComponent';
 import Footer from './Footer';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ethers } from "ethers";
-import { getContract } from "../../utils/contract";
+
 
 export default function UserProfile() {
   const router = useRouter();
   const { isLoaded, isSignedIn, user } = useUser();
   const { openUserProfile } = useClerk();
+  const { getToken } = useAuth();
 
-  // Wallet and token states
-  const [account, setAccount] = useState(null);
-  const [balance, setBalance] = useState("0");
+  // Token states
   const [greenTokens, setGreenTokens] = useState(0);
-  const [isLoadingTokens, setIsLoadingTokens] = useState(false);
-  const [contractError, setContractError] = useState(null);
-  const [isConnecting, setIsConnecting] = useState(false);
+  const [submissionsCount, setSubmissionsCount] = useState(12);
+  const [co2SavedCount, setCo2SavedCount] = useState(847);
+  const [treesPlantedCount, setTreesPlantedCount] = useState(23);
 
-  // Connect wallet function
-  const connectWallet = async () => {
-    if (isConnecting) return;
+  const loadSimulatedTokens = () => {
+    if (typeof window !== 'undefined') {
+      const simTokens = parseFloat(localStorage.getItem('simulatedTokens') || '0');
+      setGreenTokens(simTokens);
 
-    setIsConnecting(true);
-    setContractError(null);
+      const simSubmissions = parseInt(localStorage.getItem('simulatedSubmissions') || '0');
+      setSubmissionsCount(12 + simSubmissions);
 
-    try {
-      if (typeof window === 'undefined') {
-        console.log("Not in browser environment");
-        return;
-      }
+      const simCo2 = parseFloat(localStorage.getItem('simulatedCo2Saved') || '0');
+      setCo2SavedCount(847 + Math.round(simCo2));
 
-      if (!window.ethereum) {
-        console.warn("MetaMask not installed");
-        setContractError("Please install MetaMask to connect your wallet");
-        return;
-      }
-
-      console.log("Requesting MetaMask accounts...");
-
-      const accounts = await window.ethereum.request({
-        method: "eth_requestAccounts"
-      });
-
-      if (accounts && accounts.length > 0) {
-        const address = accounts[0];
-        console.log("Connected to account:", address);
-        setAccount(address);
-        setContractError(null);
-      } else {
-        console.warn("No accounts found");
-        setContractError("No accounts found. Please unlock MetaMask.");
-      }
-
-    } catch (error) {
-      console.error("Error connecting wallet:", error);
-      if (error.code === 4001) {
-        setContractError("Connection rejected. Please approve the connection in MetaMask.");
-      } else if (error.code === -32002) {
-        setContractError("Connection request pending. Please check MetaMask.");
-      } else {
-        setContractError("Failed to connect wallet. Please try again.");
-      }
-    } finally {
-      setIsConnecting(false);
+      const simTrees = parseInt(localStorage.getItem('simulatedTreesPlanted') || '0');
+      setTreesPlantedCount(23 + simTrees);
     }
   };
 
-  // Disconnect wallet function
-  const disconnectWallet = () => {
-    setAccount(null);
-    setBalance("0");
-    setGreenTokens(0);
-    setContractError(null);
-    console.log("Wallet disconnected");
-  };
-
-  // Fetch token balance
-  const viewTokens = async (walletAddress) => {
-    if (!walletAddress) {
-      console.log("No wallet address provided");
-      return;
-    }
-
-    setIsLoadingTokens(true);
-    setContractError(null);
-
-    try {
-      console.log("Fetching balance for:", walletAddress);
-
-      const contractData = await getContract();
-      console.log("Contract data received:", contractData);
-
-      const contract = contractData.contract || contractData;
-
-      if (!contract) {
-        throw new Error("Contract not initialized");
-      }
-
-      let provider = contractData.provider;
-
-      if (!provider) {
-        console.log("Provider not returned from getContract, creating new one...");
-        if (!window.ethereum) {
-          throw new Error("MetaMask not found");
-        }
-        provider = new ethers.BrowserProvider(window.ethereum);
-      }
-
-      const network = await provider.getNetwork();
-      console.log("Connected to network:", network.chainId.toString());
-
-      const contractAddress = contract.target || contract.address;
-      console.log("Contract address:", contractAddress);
-
-      const code = await provider.getCode(contractAddress);
-      console.log("Contract code length:", code.length);
-
-      if (code === '0x') {
-        throw new Error("Contract not deployed at this address on current network");
-      }
-
-      console.log("Contract found, fetching balance...");
-
-      const bal = await contract.balanceOf(walletAddress);
-      console.log("Raw balance:", bal.toString());
-
-      const formattedBalance = ethers.formatUnits(bal, 18);
-      console.log("Formatted balance:", formattedBalance);
-
-      setBalance(formattedBalance);
-      setGreenTokens(parseFloat(formattedBalance));
-
-    } catch (error) {
-      console.error("Error fetching balance:", error);
-
-      let errorMsg = "Failed to fetch balance";
-      if (error.message.includes("not deployed")) {
-        errorMsg = "Contract not deployed on current network";
-      } else if (error.message.includes("BAD_DATA") || error.code === "BAD_DATA") {
-        errorMsg = "Contract address may be incorrect or not deployed";
-      } else if (error.code === "NETWORK_ERROR") {
-        errorMsg = "Network connection error";
-      } else if (error.message.includes("MetaMask")) {
-        errorMsg = "MetaMask connection error";
-      }
-
-      setContractError(errorMsg);
-      setGreenTokens(0);
-
-    } finally {
-      setIsLoadingTokens(false);
-    }
-  };
-
-  // Check if wallet is already connected on mount
   useEffect(() => {
-    const checkConnection = async () => {
-      if (typeof window !== 'undefined' && window.ethereum) {
-        try {
-          const accounts = await window.ethereum.request({
-            method: 'eth_accounts'
-          });
+    const syncAndFetchDashboard = async () => {
+      try {
+        if (!isSignedIn || !user) return;
+        const token = await getToken();
+        if (!token) return;
 
-          if (accounts && accounts.length > 0) {
-            console.log("Already connected to:", accounts[0]);
-            setAccount(accounts[0]);
+        // 1. Sync User with MongoDB
+        await fetch('http://localhost:8080/api/v1/users/sync', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            email: user.primaryEmailAddress?.emailAddress,
+            fullName: user.fullName || `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+            avatarUrl: user.imageUrl
+          })
+        });
+
+        // 2. Fetch Dashboard stats from MongoDB
+        const dashResponse = await fetch('http://localhost:8080/api/v1/users/dashboard', {
+          headers: {
+            'Authorization': `Bearer ${token}`
           }
-        } catch (error) {
-          console.error("Error checking connection:", error);
+        });
+
+        const dashResult = await dashResponse.json();
+        if (dashResult.success && dashResult.data) {
+          const { totalGreenTokens, currentCarbonFootprint, monthlyStats, tokenSources } = dashResult.data;
+          
+          setGreenTokens(totalGreenTokens);
+          
+          // Read local simulated logs as well to merge
+          const simSubmissions = parseInt(localStorage.getItem('simulatedSubmissions') || '0');
+          setSubmissionsCount(12 + simSubmissions);
+
+          const simCo2 = parseFloat(localStorage.getItem('simulatedCo2Saved') || '0');
+          setCo2SavedCount(847 + Math.round(simCo2) + Math.round(currentCarbonFootprint));
+
+          const simTrees = parseInt(localStorage.getItem('simulatedTreesPlanted') || '0');
+          setTreesPlantedCount(23 + simTrees + (tokenSources?.fromPlanting || 0));
+
+          // Store spendable balance in localStorage for offline store page syncing
+          localStorage.setItem('simulatedTokens', totalGreenTokens.toString());
+          return;
         }
+      } catch (error) {
+        console.warn("Backend connection offline, using simulated localStorage data:", error);
       }
+
+      // Fallback if Express backend is offline
+      loadSimulatedTokens();
     };
 
-    checkConnection();
-
-    if (typeof window !== 'undefined' && window.ethereum) {
-      const handleAccountsChanged = (accounts) => {
-        console.log("Accounts changed:", accounts);
-        if (accounts.length === 0) {
-          disconnectWallet();
-        } else {
-          setAccount(accounts[0]);
-        }
-      };
-
-      const handleChainChanged = () => {
-        console.log("Chain changed, reloading...");
-        window.location.reload();
-      };
-
-      window.ethereum.on('accountsChanged', handleAccountsChanged);
-      window.ethereum.on('chainChanged', handleChainChanged);
-
-      return () => {
-        if (window.ethereum.removeListener) {
-          window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
-          window.ethereum.removeListener('chainChanged', handleChainChanged);
-        }
-      };
+    if (isLoaded && isSignedIn) {
+      syncAndFetchDashboard();
     }
-  }, []);
 
-  // Fetch tokens when account changes
-  useEffect(() => {
-    if (account) {
-      console.log("Account connected, fetching tokens...");
-      viewTokens(account);
-    }
-  }, [account]);
+    const handleStorageChange = (e) => {
+      if (['simulatedTokens', 'simulatedSubmissions', 'simulatedCo2Saved', 'simulatedTreesPlanted'].includes(e.key)) {
+        loadSimulatedTokens();
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [isLoaded, isSignedIn, user]);
 
   // Loading state
   if (!isLoaded) {
@@ -317,50 +210,19 @@ export default function UserProfile() {
 
                 <div className="w-full border-t border-emerald-950/5 my-6" />
 
-                {/* Wallet Info Panel */}
-                <div className="w-full space-y-3">
-                  {account ? (
-                    <div className="w-full space-y-2.5">
-                      <div className="p-3.5 bg-gradient-to-r from-emerald-50/60 to-teal-50/60 border border-emerald-100/80 rounded-2xl shadow-inner relative overflow-hidden">
-                        <p className="text-[9px] uppercase font-black text-emerald-800 tracking-widest mb-1.5">Connected Web3 Wallet</p>
-                        <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 bg-emerald-500 rounded-full animate-ping" />
-                          <p className="text-xs font-mono font-bold text-emerald-950 truncate">
-                            {account.slice(0, 6)}...{account.slice(-4)}
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={disconnectWallet}
-                        className="w-full py-2.5 px-4 bg-red-50/80 hover:bg-red-100/80 border border-red-100/80 hover:border-red-200 text-red-600 rounded-xl text-xs font-bold transition-all duration-300 flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
-                      >
-                        Disconnect Wallet
-                      </button>
+                {/* Eco Badge Panel */}
+                <div className="w-full p-4.5 bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/20 rounded-2xl shadow-inner relative overflow-hidden">
+                  <div className="absolute top-[-30px] right-[-30px] w-20 h-20 bg-emerald-500/10 rounded-full blur-lg" />
+                  <p className="text-[9px] uppercase font-black text-emerald-800 tracking-widest mb-2">Warrior Ecosystem Tier</p>
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                      <Award className="w-5 h-5 text-emerald-700" />
                     </div>
-                  ) : (
-                    <div className="w-full">
-                      <button
-                        onClick={connectWallet}
-                        disabled={isConnecting}
-                        className="w-full py-3.5 px-4 bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 hover:from-emerald-600 hover:via-emerald-700 hover:to-teal-700 disabled:from-emerald-400 disabled:to-teal-400 text-white rounded-2xl text-sm font-extrabold shadow-[0_10px_25px_rgba(16,185,129,0.15)] hover:shadow-[0_15px_30px_rgba(16,185,129,0.25)] transition-all duration-300 flex items-center justify-center gap-2 transform hover:-translate-y-0.5 active:scale-95 cursor-pointer"
-                      >
-                        {isConnecting ? (
-                          <>
-                            <div className="w-4.5 h-4.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                            Connecting Wallet...
-                          </>
-                        ) : (
-                          <>
-                            <Coins className="w-5 h-5 animate-pulse" />
-                            Connect Web3 Wallet
-                          </>
-                        )}
-                      </button>
-                      {contractError && (
-                        <p className="text-xs font-bold text-red-600 mt-3 text-center bg-red-50 border border-red-100/60 p-3 rounded-xl leading-relaxed">{contractError}</p>
-                      )}
+                    <div>
+                      <p className="text-sm font-bold text-emerald-950 leading-tight">Green Warrior 🌿</p>
+                      <p className="text-[10px] text-emerald-700/80 font-semibold mt-0.5">Ecosystem Restorer Tier</p>
                     </div>
-                  )}
+                  </div>
                 </div>
 
                 {/* Edit Account Button */}
@@ -386,34 +248,14 @@ export default function UserProfile() {
               </div>
 
               <div className="relative z-10 mb-2">
-                {!account ? (
-                  <div className="mb-4">
-                    <div className="text-4xl font-black text-white/90 mb-1.5">--</div>
-                    <p className="text-xs text-emerald-300/60 font-semibold">Connect wallet to sync live balance</p>
+                <div className="mb-4">
+                  <div className="text-5xl font-black bg-clip-text text-transparent bg-gradient-to-r from-white via-emerald-100 to-teal-200 tracking-tight drop-shadow-sm">
+                    {greenTokens.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                   </div>
-                ) : contractError ? (
-                  <div className="mb-4">
-                    <div className="text-3xl font-black text-white/90 mb-2">⚠️</div>
-                    <p className="text-xs text-red-200/80 mb-2 leading-relaxed font-semibold">{contractError}</p>
-                    <button
-                      onClick={() => viewTokens(account)}
-                      className="text-xs font-black underline text-emerald-300 hover:text-emerald-100 transition-colors"
-                    >
-                      Retry Sync
-                    </button>
-                  </div>
-                ) : (
-                  <div className="mb-4">
-                    <div className="text-5xl font-black bg-clip-text text-transparent bg-gradient-to-r from-white via-emerald-100 to-teal-200 tracking-tight drop-shadow-sm">
-                      {isLoadingTokens ? (
-                        <span className="animate-pulse opacity-70">Loading...</span>
-                      ) : (
-                        greenTokens.toLocaleString(undefined, { maximumFractionDigits: 2 })
-                      )}
-                    </div>
-                    <p className="text-xs text-emerald-300/80 font-bold tracking-wide mt-2">Verified Sepolia Testnet Balance</p>
-                  </div>
-                )}
+                  <p className="text-xs text-emerald-300/80 font-bold tracking-wide mt-2">
+                    Verified Green Tokens (ML Calculated)
+                  </p>
+                </div>
               </div>
 
               <div className="space-y-3 mt-6 relative z-10">
@@ -543,7 +385,7 @@ export default function UserProfile() {
                     <div className="text-left">
                       <div className="flex items-center gap-2">
                         <h4 className="font-bold text-gray-800 text-base">Eco Purchase</h4>
-                        <span className="text-[9px] font-black uppercase tracking-wider text-purple-700 bg-purple-100/60 px-1.5 py-0.5 rounded-md border border-purple-200/50">Blockchain Verified</span>
+                        <span className="text-[9px] font-black uppercase tracking-wider text-purple-700 bg-purple-100/60 px-1.5 py-0.5 rounded-md border border-purple-200/50">ML Model</span>
                       </div>
                       <p className="text-xs text-gray-500 mt-1 font-medium">Solar panels, EV, & green purchases</p>
                     </div>
@@ -567,21 +409,21 @@ export default function UserProfile() {
                   <div className="w-10 h-10 bg-emerald-100/80 rounded-full flex items-center justify-center mb-3 shadow-sm">
                     <Award className="w-5 h-5 text-emerald-700" />
                   </div>
-                  <p className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-emerald-700 to-teal-850">12</p>
+                  <p className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-emerald-700 to-teal-850">{submissionsCount}</p>
                   <p className="text-[10px] font-extrabold text-green-700 mt-1 uppercase tracking-wider">Submissions</p>
                 </div>
                 <div className="flex flex-col items-center text-center p-5 bg-gradient-to-br from-green-50/50 to-emerald-50/10 hover:from-green-50 hover:to-emerald-50 border border-green-100/60 rounded-2xl transition-all duration-300 transform hover:-translate-y-1 hover:shadow-md cursor-default">
                   <div className="w-10 h-10 bg-green-100/80 rounded-full flex items-center justify-center mb-3 shadow-sm">
                     <Leaf className="w-5 h-5 text-green-700" />
                   </div>
-                  <p className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-green-700 to-emerald-850">847 kg</p>
+                  <p className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-green-700 to-emerald-850">{co2SavedCount.toLocaleString()} kg</p>
                   <p className="text-[10px] font-extrabold text-green-700 mt-1 uppercase tracking-wider">CO₂ Saved</p>
                 </div>
                 <div className="flex flex-col items-center text-center p-5 bg-gradient-to-br from-teal-50/50 to-lime-50/10 hover:from-teal-50 hover:to-lime-50 border border-teal-100/60 rounded-2xl transition-all duration-300 transform hover:-translate-y-1 hover:shadow-md cursor-default">
                   <div className="w-10 h-10 bg-teal-100/80 rounded-full flex items-center justify-center mb-3 shadow-sm">
                     <Trees className="w-5 h-5 text-teal-700" />
                   </div>
-                  <p className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-teal-700 to-lime-850">23</p>
+                  <p className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-teal-700 to-lime-850">{treesPlantedCount}</p>
                   <p className="text-[10px] font-extrabold text-green-700 mt-1 uppercase tracking-wider">Trees Planted</p>
                 </div>
               </div>

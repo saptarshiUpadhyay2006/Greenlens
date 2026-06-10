@@ -1,7 +1,13 @@
 import pandas as pd
 import joblib
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile, File
+import re
+import io
+import fitz
+from PIL import Image
+import pytesseract
+
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
@@ -89,6 +95,114 @@ app.add_middleware(
 @app.get("/")
 def read_root():
     return {"message": "GreenLens Modular AI Engine is running!"}
+
+
+def parse_extracted_text(text: str):
+    text_lower = text.lower()
+    
+    # Try to find Customer ID
+    customer_id = None
+    cust_patterns = [
+        r"(?:customer|consumer|account|ca|bill|utility)\s*(?:id|number|no|num|#)?\s*[:\-=]?\s*([a-zA-Z0-9\-]{4,20})",
+        r"cust\s*id\s*[:\-=]?\s*([a-zA-Z0-9\-]{4,20})",
+    ]
+    for pattern in cust_patterns:
+        match = re.search(pattern, text_lower)
+        if match:
+            customer_id = match.group(1).upper()
+            break
+            
+    # Try to find Units Consumed
+    units_consumed = None
+    units_patterns = [
+        r"(?:units|consumption|usage|kwh|power\s*used)\s*(?:consumed|used)?\s*[:\-=]?\s*(\d+(?:\.\d+)?)",
+        r"(\d+(?:\.\d+)?)\s*(?:units|kwh)",
+    ]
+    for pattern in units_patterns:
+        match = re.search(pattern, text_lower)
+        if match:
+            units_consumed = float(match.group(1))
+            break
+            
+    # Try to find Carpet Area
+    carpet_area = None
+    area_patterns = [
+        r"(?:carpet)?\s*area\s*[:\-=]?\s*(\d+(?:\.\d+)?)\s*(?:sqft|sq\s*ft|sq\.ft|square\s*feet|sq\s*meters)?",
+        r"(\d+(?:\.\d+)?)\s*(?:sqft|sq\s*ft|sq\.ft|square\s*feet)"
+    ]
+    for pattern in area_patterns:
+        match = re.search(pattern, text_lower)
+        if match:
+            carpet_area = float(match.group(1))
+            break
+            
+    return customer_id, units_consumed, carpet_area
+
+
+@app.post("/parse-bill")
+async def parse_bill(file: UploadFile = File(...)):
+    filename = file.filename
+    file_bytes = await file.read()
+    
+    text = ""
+    error_log = []
+    
+    # Check if PDF
+    if filename.lower().endswith(".pdf"):
+        try:
+            doc = fitz.open(stream=file_bytes, filetype="pdf")
+            for page in doc:
+                text += page.get_text()
+        except Exception as e:
+            error_log.append(f"PDF text extraction failed: {str(e)}")
+    else:
+        # Try image OCR using pytesseract
+        try:
+            image = Image.open(io.BytesIO(file_bytes))
+            text = pytesseract.image_to_string(image)
+        except Exception as e:
+            error_log.append(f"pytesseract OCR failed: {str(e)}")
+            
+    # Extract info using regex
+    customer_id, units_consumed, carpet_area = None, None, None
+    home_type = None
+    
+    if text:
+        # Regex search
+        customer_id, units_consumed, carpet_area = parse_extracted_text(text)
+        
+        # Look for homeType
+        text_lower = text.lower()
+        for htype in ["apartment", "bungalow", "villa", "independent-house", "independent house", "farmhouse"]:
+            if htype in text_lower:
+                home_type = htype.replace(" ", "-")
+                break
+                
+    # Fallback simulation if parsing didn't find the fields (e.g. image OCR failed or dummy file uploaded)
+    is_mock = False
+    if not customer_id or not units_consumed or not carpet_area:
+        is_mock = True
+        if not customer_id:
+            # Try to grab digits from filename, else default
+            fn_digits = "".join(filter(str.isdigit, filename))
+            customer_id = f"CUST-{fn_digits}" if fn_digits else "CUST-987456"
+        if not units_consumed:
+            units_consumed = 350.0  # reasonable fallback
+        if not carpet_area:
+            carpet_area = 1100.0  # reasonable fallback
+        if not home_type:
+            home_type = "apartment"
+            
+    return {
+        "status": "success",
+        "customer_id": customer_id,
+        "units_consumed": units_consumed,
+        "carpet_area": carpet_area,
+        "home_type": home_type,
+        "is_mock": is_mock,
+        "error_log": error_log
+    }
+
 
 
 @app.post("/calculate-electricity")

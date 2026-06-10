@@ -4,10 +4,11 @@ import { gsap } from 'gsap';
 import { ChevronsDown } from 'lucide-react';
 import MouseFollower from './MouseFollower';
 import Link from 'next/link';
+import { useUser } from '@clerk/nextjs';
 
 function Hero() {
-
-    const arrowRef = useRef(null);
+  const { isSignedIn } = useUser();
+  const arrowRef = useRef(null);
   const buttonRef = useRef(null);
 
 
@@ -120,7 +121,7 @@ useEffect(() => {
           <h4 className="text-black text-2xl font-light mt-4 w-[90%]">
             GreenLens helps you measure your daily carbon footprint and reward eco-friendly choices.
           </h4>
-        <Link to='/auth' href='/auth' className='h-[10%]'>
+        <Link href={isSignedIn ? '/home' : '/auth'} className='h-[10%]'>
         <button
             ref={buttonRef}
             className="h-full w-[40%] bg-transparent border-2 border-black rounded-full mt-8 text-black text-xl font-medium hover:bg-black hover:text-white transition-all duration-300 ease-in-out pointer-events-auto z-10"
@@ -156,4 +157,4 @@ useEffect(() => {
   )
 }
 
-export default Hero
+export default Hero;

@@ -8,7 +8,7 @@ import axios from "axios";
 
 export const logElectricityBill = asyncHandler(async (req, res) => {
   // 1. Get data from request body
-  const { bill, month, unitsUsed, solarUsed } = req.body;
+  const { bill, month, unitsUsed, solarUsed, homeType, carpetArea } = req.body;
   const clerkId = req.auth.userId;
 
   if (!month || unitsUsed === undefined) {
@@ -19,20 +19,30 @@ export const logElectricityBill = asyncHandler(async (req, res) => {
   const user = await User.findOne({ clerkId });
   if (!user) throw new ApiError(404, "User not found");
 
-  const address = await Address.findById(user.addressId);
-  if (!address || !address.homeType || !address.carpetArea) {
+  let address = await Address.findById(user.addressId);
+  const finalHomeType = homeType || (address ? address.homeType : null);
+  const finalCarpetArea = carpetArea || (address ? address.carpetArea : null);
+
+  if (!finalHomeType || !finalCarpetArea) {
     throw new ApiError(
       400,
-      "Please update your address and home details in your profile first."
+      "Home Type and Carpet Area are required (either in request body or user profile)"
     );
+  }
+
+  // Save new values to the address model if they were provided
+  if (address) {
+    if (homeType && address.homeType !== homeType) address.homeType = homeType;
+    if (carpetArea && address.carpetArea !== carpetArea) address.carpetArea = carpetArea;
+    await address.save();
   }
 
   // 3. Call the FastAPI ML Service
   let mlResponse;
   try {
     const payload = {
-      homeType: address.homeType,
-      carpetArea_sqft: parseFloat(address.carpetArea),
+      homeType: finalHomeType,
+      carpetArea_sqft: parseFloat(finalCarpetArea),
       monthly_unitsUsed_kwh: parseFloat(unitsUsed),
       monthly_solarUsed_kwh: parseFloat(solarUsed) || 0,
     };

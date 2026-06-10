@@ -1,8 +1,7 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/apiError.js";
 import { ApiResponse } from "../utils/apiResponse.js";
-import { User } from "../models/models.js";
-// import { TripLog } from "../models/tripLog.model.js";
+import { User, TripLog } from "../models/models.js";
 import axios from "axios";
 
 const vehicleTypeMap = {

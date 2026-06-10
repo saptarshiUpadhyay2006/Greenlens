@@ -3,8 +3,10 @@ import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import Lenis from 'lenis'
+import { useUser } from '@clerk/nextjs'
 
 export default function Navbar() {
+  const { isSignedIn } = useUser()
   const [activeSection, setActiveSection] = useState('#hero')
 
   const leftNavItems = [
@@ -87,8 +89,12 @@ export default function Navbar() {
       </div>
 
       {/* Center Logo */}
-      <Link href="#hero" onClick={(e) => handleClick(e, '#hero')} className='mx-6'>
-        <div className='w-10 h-10 bg-[#1B5E20] rounded-full hover:scale-110 transition-transform duration-300 cursor-pointer shadow-md'></div>
+      <Link href="/home" className='mx-6'>
+        <img
+          src="/greenlens_logo.svg"
+          alt="GreenLens"
+          className="h-12 w-12 hover:scale-110 transition-transform duration-300 cursor-pointer drop-shadow-sm"
+        />
       </Link>
 
       {/* Right Nav Items + CTA */}
@@ -108,10 +114,10 @@ export default function Navbar() {
 
         {/* Login / Signup Button */}
         <Link
-          href="/auth"
+          href={isSignedIn ? "/home" : "/auth"}
           className='bg-[#1B5E20] text-[#E8F5E9] font-semibold text-sm md:text-base px-4 py-2 rounded-full shadow-md transition-all duration-300 hover:bg-[#2E7D32] hover:scale-105'
         >
-          Login
+          {isSignedIn ? "Dashboard" : "Login"}
         </Link>
       </div>
     </motion.nav>

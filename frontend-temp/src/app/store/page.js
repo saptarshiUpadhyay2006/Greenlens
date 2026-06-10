@@ -4,70 +4,48 @@ import { products } from "../data/product.js";
 import ProductCard from "../components/ProductCard.jsx";
 import Footer from "../components/Footer.jsx";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@clerk/nextjs";
 import { ArrowLeft, Coins, Wallet, ShoppingBag } from "lucide-react";
-import { ethers } from "ethers";
-import { getContract } from "../../utils/contract";
+
 
 const RedeemPage = () => {
   const router = useRouter();
-  const [account, setAccount] = useState(null);
-  const [balance, setBalance] = useState("0");
-  const [isConnecting, setIsConnecting] = useState(false);
+  const { getToken } = useAuth();
+  const [balance, setBalance] = useState(0);
 
-  // Check if wallet is already connected on load
+  // Load token balance from Express backend or localStorage
   useEffect(() => {
-    const checkWalletConnected = async () => {
-      if (typeof window !== "undefined" && window.ethereum) {
-        try {
-          const accounts = await window.ethereum.request({ method: "eth_accounts" });
-          if (accounts && accounts.length > 0) {
-            setAccount(accounts[0]);
-            fetchBalance(accounts[0]);
+    const fetchBalance = async () => {
+      try {
+        const token = await getToken();
+        if (token) {
+          const response = await fetch('http://localhost:8080/api/v1/users/dashboard', {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          const resData = await response.json();
+          if (resData.success && resData.data) {
+            const bal = resData.data.totalGreenTokens;
+            setBalance(bal);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('simulatedTokens', bal.toString());
+            }
+            return;
           }
-        } catch (error) {
-          console.error("Error checking wallet connection:", error);
         }
+      } catch (err) {
+        console.warn("Backend offline or error fetching balance, falling back to local:", err);
+      }
+
+      if (typeof window !== "undefined") {
+        const simTokens = parseFloat(localStorage.getItem('simulatedTokens') || '0');
+        setBalance(simTokens);
       }
     };
-    checkWalletConnected();
+
+    fetchBalance();
   }, []);
-
-  // Fetch token balance from Sepolia contract
-  const fetchBalance = async (walletAddress) => {
-    try {
-      const contractData = await getContract();
-      const contract = contractData.contract || contractData;
-      if (!contract) return;
-
-      const bal = await contract.balanceOf(walletAddress);
-      const formattedBalance = ethers.formatUnits(bal, 18);
-      // Format to 2 decimal places if it is a float
-      const parsedBalance = parseFloat(formattedBalance);
-      setBalance(parsedBalance % 1 === 0 ? parsedBalance.toString() : parsedBalance.toFixed(2));
-    } catch (error) {
-      console.error("Error fetching token balance:", error);
-    }
-  };
-
-  // Connect wallet
-  const connectWallet = async () => {
-    if (typeof window === "undefined" || !window.ethereum) {
-      alert("MetaMask is not installed. Please install MetaMask to use Web3 features.");
-      return;
-    }
-    setIsConnecting(true);
-    try {
-      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-      if (accounts && accounts.length > 0) {
-        setAccount(accounts[0]);
-        fetchBalance(accounts[0]);
-      }
-    } catch (error) {
-      console.error("Error connecting wallet:", error);
-    } finally {
-      setIsConnecting(false);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f3f9f6] via-[#eef7f2] to-[#e6f4f1] py-12 px-4 sm:px-6 lg:px-8 font-sans flex flex-col justify-between">
@@ -84,32 +62,19 @@ const RedeemPage = () => {
             Back to Dashboard
           </button>
 
-          {/* Web3 Wallet Balance Card */}
+          {/* Green Tokens Balance Card */}
           <div className="bg-emerald-50/45 backdrop-blur-xl border border-emerald-500/20 p-3 sm:px-5 rounded-[2rem] shadow-[0_8px_30px_rgba(27,94,32,0.02)] flex items-center gap-4 transition-all duration-300">
-            {account ? (
-              <div className="flex items-center gap-3">
-                <div className="flex flex-col text-left">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Connected Wallet</span>
-                  <span className="text-xs font-semibold text-emerald-950">
-                    {account.substring(0, 6)}...{account.substring(account.length - 4)}
-                  </span>
-                </div>
-                <div className="h-8 w-px bg-slate-200" />
-                <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-100/60 px-3 py-1.5 rounded-xl">
-                  <Coins className="w-4 h-4 text-emerald-600 animate-pulse" />
-                  <span className="text-sm font-black text-emerald-950">{balance} GT</span>
-                </div>
+            <div className="flex items-center gap-3">
+              <div className="flex flex-col text-left">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Ecosystem Balance</span>
+                <span className="text-xs font-semibold text-emerald-950">ML Calculated Tokens</span>
               </div>
-            ) : (
-              <button
-                onClick={connectWallet}
-                disabled={isConnecting}
-                className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 text-white font-extrabold text-xs py-2.5 px-4 rounded-xl shadow-md transition-all duration-300"
-              >
-                <Wallet className="w-4 h-4" />
-                {isConnecting ? "Connecting..." : "Connect Wallet"}
-              </button>
-            )}
+              <div className="h-8 w-px bg-slate-200" />
+              <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-100/60 px-3 py-1.5 rounded-xl">
+                <Coins className="w-4 h-4 text-emerald-600 animate-pulse" />
+                <span className="text-sm font-black text-emerald-950">{balance.toLocaleString(undefined, { maximumFractionDigits: 2 })} GT</span>
+              </div>
+            </div>
           </div>
         </div>
 

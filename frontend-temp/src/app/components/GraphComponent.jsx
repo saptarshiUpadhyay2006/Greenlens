@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   LineChart,
   Line,
@@ -12,7 +12,7 @@ import {
   Cell,
 } from "recharts";
 
-import { monthlyTokens, activityBreakdown } from "../data/dashboardData";
+import { monthlyTokens as staticMonthlyTokens, activityBreakdown as staticActivityBreakdown } from "../data/dashboardData";
 import { TrendingUp, BarChart3 } from "lucide-react";
 
 // Color mapping matching the categories on the dashboard:
@@ -23,19 +23,80 @@ import { TrendingUp, BarChart3 } from "lucide-react";
 const COLORS = ["#3B82F6", "#EAB308", "#F97316", "#10B981"];
 
 export default function GraphComponent() {
-  const totalTokens = monthlyTokens.reduce((sum, m) => sum + m.tokens, 0);
-  const lastMonthTokens = monthlyTokens[monthlyTokens.length - 2].tokens;
-  const currentMonthTokens = monthlyTokens[monthlyTokens.length - 1].tokens;
+  const [monthlyTokens, setMonthlyTokens] = useState(staticMonthlyTokens);
+  const [activityBreakdown, setActivityBreakdown] = useState(staticActivityBreakdown);
+  const [totalTokens, setTotalTokens] = useState(0);
+  const [lastMonthTokens, setLastMonthTokens] = useState(0);
+  const [currentMonthTokens, setCurrentMonthTokens] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
 
-  const [isMobile, setIsMobile] = React.useState(false);
+  const loadDynamicData = () => {
+    if (typeof window !== "undefined") {
+      const transport = parseFloat(localStorage.getItem('simulatedTokens_Transport') || '0');
+      const electricity = parseFloat(localStorage.getItem('simulatedTokens_Electricity') || '0');
+      const solar = parseFloat(localStorage.getItem('simulatedTokens_Solar') || '0');
+      const other = parseFloat(localStorage.getItem('simulatedTokens_Other') || '0');
 
-  React.useEffect(() => {
+      const totalSimulated = transport + electricity + solar + other;
+
+      // Update line chart data (scale June by total simulated tokens earned)
+      const updatedMonthly = staticMonthlyTokens.map(m => {
+        if (m.month === "Jun") {
+          return { ...m, tokens: m.tokens + totalSimulated };
+        }
+        return m;
+      });
+      setMonthlyTokens(updatedMonthly);
+
+      // Recalculate stats row based on updated data
+      const sum = updatedMonthly.reduce((s, m) => s + m.tokens, 0);
+      setTotalTokens(sum);
+      
+      // Jan=0, Feb=1, Mar=2, Apr=3, May=4 (lastMonth), Jun=5 (currentMonth)
+      const prevMonthIndex = 4;
+      const curMonthIndex = 5;
+      setLastMonthTokens(updatedMonthly[prevMonthIndex].tokens);
+      setCurrentMonthTokens(updatedMonthly[curMonthIndex].tokens);
+
+      // Update Pie Chart breakdown
+      // Baseline raw tokens: Transport = 450, Electricity = 300, Solar = 150, Other = 100
+      const rawTransport = 450 + transport;
+      const rawElectricity = 300 + electricity;
+      const rawSolar = 150 + solar;
+      const rawOther = 100 + other;
+      const rawTotal = rawTransport + rawElectricity + rawSolar + rawOther;
+
+      const updatedBreakdown = [
+        { name: "Mode of Transport", value: Math.round((rawTransport / rawTotal) * 100) },
+        { name: "Electricity", value: Math.round((rawElectricity / rawTotal) * 100) },
+        { name: "Solar power", value: Math.round((rawSolar / rawTotal) * 100) },
+        { name: "Other", value: Math.round((rawOther / rawTotal) * 100) },
+      ];
+      setActivityBreakdown(updatedBreakdown);
+    }
+  };
+
+  useEffect(() => {
+    loadDynamicData();
+
+    const handleStorageChange = (e) => {
+      if (e.key && (e.key.startsWith('simulatedTokens') || e.key === 'clear')) {
+        loadDynamicData();
+      }
+    };
+
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768);
     };
+
     handleResize();
     window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    window.addEventListener("storage", handleStorageChange);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("storage", handleStorageChange);
+    };
   }, []);
 
   return (
@@ -53,11 +114,11 @@ export default function GraphComponent() {
           <p className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-emerald-700 to-teal-850 mt-2">{totalTokens}</p>
         </div>
         <div className="card bg-gradient-to-br from-green-50/50 to-emerald-50/10 hover:from-green-50 hover:to-emerald-50 border border-green-100/60 p-5 rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md cursor-default">
-          <h4 className="text-xs font-bold text-green-800 uppercase tracking-wider">Last Month</h4>
+          <h4 className="text-xs font-bold text-green-800 uppercase tracking-wider">Last Month (May)</h4>
           <p className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-green-700 to-emerald-850 mt-2">{lastMonthTokens}</p>
         </div>
         <div className="card bg-gradient-to-br from-lime-50/50 to-lime-50/10 hover:from-lime-50 hover:to-lime-50 border border-lime-100/60 p-5 rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md cursor-default">
-          <h4 className="text-xs font-bold text-lime-800 uppercase tracking-wider">Current Month</h4>
+          <h4 className="text-xs font-bold text-lime-800 uppercase tracking-wider">Current Month (Jun)</h4>
           <p className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-lime-700 to-emerald-850 mt-2">{currentMonthTokens}</p>
         </div>
       </div>

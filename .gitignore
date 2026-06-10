@@ -1,0 +1,130 @@
+# ========================
+# OS & Editor
+# ========================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ========================
+# Environment Variables (NEVER commit secrets)
+# ========================
+.env
+.env.*
+!.env.example
+.env.local
+.env.development
+.env.staging
+.env.production
+.env.test
+
+# ========================
+# Node.js / Next.js
+# ========================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+lerna-debug.log*
+
+# Next.js build output
+.next/
+out/
+build/
+dist/
+
+# Next.js cache
+.next/cache/
+
+# Vercel
+.vercel/
+
+# Turbopack
+.turbo/
+
+# ========================
+# Python / FastAPI
+# ========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.Python
+
+# Python packaging
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+.eggs/
+*.whl
+MANIFEST
+
+# Pytest / Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# mypy / pyright
+.mypy_cache/
+.pytype/
+.pyre/
+pyrightconfig.json
+
+# ========================
+# Logs
+# ========================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# ========================
+# Package locks (keep only one)
+# ========================
+# Uncomment if you only use npm:
+# yarn.lock
+# pnpm-lock.yaml
+
+# ========================
+# Misc
+# ========================
+*.pem
+*.key
+*.cert
+*.p12
+
+# ========================
+# Optional: keep .env.example as a template
+# ========================
+# .env.example  ← do NOT ignore this one

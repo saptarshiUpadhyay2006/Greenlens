@@ -7,7 +7,7 @@ import axios from "axios";
 
 export const logSolarGeneration = asyncHandler(async (req, res) => {
   // 1. Get data from form and user
-  const { solarCompany, unitsGenerated } = req.body;
+  const { solarCompany, unitsGenerated, homeType, carpetArea } = req.body;
   const clerkId = req.auth.userId;
 
   // 2. Validate form data
@@ -25,13 +25,14 @@ export const logSolarGeneration = asyncHandler(async (req, res) => {
     throw new ApiError(404, "User not found");
   }
 
-  // The ML model needs homeType and carpetArea. We get this from the user's saved Address.
   const address = await Address.findById(user.addressId);
-  if (!address || !address.homeType || !address.carpetArea) {
-    throw new ApiError(
-      400,
-      "Please update your address and home details in your profile first."
-    );
+  const finalHomeType = homeType || (address ? address.homeType : "Apartment");
+  const finalCarpetArea = carpetArea || (address ? address.carpetArea : "1000");
+
+  if (address) {
+    if (homeType && address.homeType !== homeType) address.homeType = homeType;
+    if (carpetArea && address.carpetArea !== carpetArea) address.carpetArea = carpetArea;
+    await address.save();
   }
 
   // 4. Handle the image upload
@@ -47,13 +48,11 @@ export const logSolarGeneration = asyncHandler(async (req, res) => {
   const billProofUrl = cloudinaryResponse.url;
 
   // 5. Call the FastAPI ML Service
-  // We re-use the electricity endpoint, as it's designed to process solar.
-  // We assume "unitsUsed" (consumed from grid) is 0 for this form.
   let mlResponse;
   try {
     const payload = {
-      homeType: address.homeType,
-      carpetArea_sqft: parseFloat(address.carpetArea),
+      homeType: finalHomeType,
+      carpetArea_sqft: parseFloat(finalCarpetArea),
       monthly_unitsUsed_kwh: 0, // Not provided on this form
       monthly_solarUsed_kwh: numUnitsGenerated, // This is our "Units Generated"
     };

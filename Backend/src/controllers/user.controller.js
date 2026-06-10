@@ -108,3 +108,70 @@ export const getUserDashboard = asyncHandler(async (req, res) => {
       new ApiResponse(200, dashboardData, "Dashboard data fetched successfully")
     );
 });
+
+export const syncUser = asyncHandler(async (req, res) => {
+  const clerkId = req.auth.userId;
+  const { email, fullName, avatarUrl } = req.body;
+
+  if (!clerkId) {
+    throw new ApiError(401, "Unauthorized request");
+  }
+
+  let user = await User.findOne({ clerkId });
+  if (!user) {
+    // Create a default Address linked to the user
+    const defaultAddress = await Address.create({
+      address: "Update Address",
+      city: "Update City",
+      state: "Update State",
+      pinCode: "000000",
+      carpetArea: "1000",
+      homeType: "Apartment",
+    });
+
+    user = await User.create({
+      clerkId,
+      email,
+      fullName: fullName || "Eco Warrior",
+      avatarUrl: avatarUrl || "",
+      addressId: defaultAddress._id,
+      greenTokens: 100, // starting balance
+      carbonFootprint: 0,
+    });
+  }
+
+  return res.status(200).json(new ApiResponse(200, user, "User synced successfully"));
+});
+
+export const redeemTokens = asyncHandler(async (req, res) => {
+  const clerkId = req.auth.userId;
+  const { amount, productId, productName } = req.body;
+
+  if (!amount || amount <= 0) {
+    throw new ApiError(400, "Invalid redemption amount");
+  }
+
+  const user = await User.findOne({ clerkId });
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  if (user.greenTokens < amount) {
+    throw new ApiError(400, "Insufficient Green Tokens balance in database");
+  }
+
+  user.greenTokens -= amount;
+  await user.save({ validateBeforeSave: false });
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        newTotalTokens: user.greenTokens,
+        productId,
+        productName
+      },
+      "Tokens successfully redeemed and burned in backend"
+    )
+  );
+});

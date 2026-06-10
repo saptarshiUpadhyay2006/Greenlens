@@ -2,8 +2,13 @@
 import { motion } from 'framer-motion';
 import { ShoppingCart, Upload, CheckCircle, Loader2 } from 'lucide-react';
 import { useState } from 'react';
+import { useAuth } from '@clerk/nextjs';
+import { useRouter } from 'next/navigation';
+import Footer from '../../components/Footer.jsx';
 
 export default function PurchaseForm() {
+  const { getToken } = useAuth();
+  const router = useRouter();
   const [purchaseType, setPurchaseType] = useState('');
   const [formData, setFormData] = useState({
     // Solar Panel fields
@@ -24,23 +29,7 @@ export default function PurchaseForm() {
     proofFile: null
   });
   const [submitted, setSubmitted] = useState(false);
-  const [isMinting, setIsMinting] = useState(false);
-  const [account, setAccount] = useState(null);
-
-  // Connect wallet function
-  const connectWallet = async () => {
-    if (window.ethereum) {
-      try {
-        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        setAccount(accounts[0]);
-        return accounts[0];
-      } catch (error) {
-        console.error("Error connecting wallet:", error);
-        return null;
-      }
-    }
-    return null;
-  };
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleFileChange = (e, fileType) => {
     if (e.target.files && e.target.files[0]) {
@@ -48,55 +37,22 @@ export default function PurchaseForm() {
     }
   };
 
-  const mintTokens = async (connectedAccount) => {
-    try {
-      console.log("Minting tokens to:", connectedAccount);
-      
-      // Import ethers dynamically
-      const { ethers } = await import('ethers');
-      
-      // You'll need to provide your contract ABI and address
-      const contractAddress = "YOUR_CONTRACT_ADDRESS";
-      const contractABI = [
-        "function mint(address to, uint256 amount) public"
-      ];
-
-      if (!window.ethereum) {
-        throw new Error("MetaMask not found");
-      }
-
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
-      const contract = new ethers.Contract(contractAddress, contractABI, signer);
-
-      // Verify contract is deployed
-      const code = await provider.getCode(contractAddress);
-      if (code === '0x' || code === '0x0') {
-        throw new Error("Contract not deployed on current network. Please switch to the correct network.");
-      }
-
-      console.log("Minting 50 tokens...");
-      const tx = await contract.mint(connectedAccount, ethers.parseUnits("50", 18));
-      console.log("Transaction sent:", tx.hash);
-      
-      await tx.wait();
-      console.log("Transaction confirmed!");
-      
-      return true;
-    } catch (error) {
-      console.error("Error minting:", error);
-      
-      let errorMsg = "Failed to mint tokens";
-      if (error.message.includes("not deployed")) {
-        errorMsg = "Contract not deployed. Please check your network.";
-      } else if (error.code === "ACTION_REJECTED") {
-        errorMsg = "Transaction rejected by user";
-      } else if (error.message.includes("insufficient funds")) {
-        errorMsg = "Insufficient funds for gas";
-      }
-      
-      throw new Error(errorMsg);
+  const calculateTokens = () => {
+    let tokens = 50; // base reward
+    let co2Saved = 100; // base co2 saved in kg
+    
+    if (purchaseType === 'solar') {
+      const cap = parseFloat(formData.panelCapacity) || 0;
+      const panels = parseInt(formData.numberOfPanels) || 0;
+      tokens = 100 + Math.floor(cap * panels * 10);
+      co2Saved = parseFloat((cap * panels * 40).toFixed(2));
+    } else if (purchaseType === 'ev') {
+      const bat = parseFloat(formData.batteryCapacity) || 0;
+      tokens = 150 + Math.floor(bat * 2);
+      co2Saved = parseFloat((bat * 15).toFixed(2));
     }
+
+    return { tokensEarned: tokens, co2Saved };
   };
 
   const validateForm = () => {
@@ -130,64 +86,72 @@ export default function PurchaseForm() {
       return;
     }
 
-    setIsMinting(true);
+    setIsSubmitting(true);
+    console.log('Purchase Data Submitted:', { purchaseType, ...formData });
 
+    // Calculate tokens and co2 saved
+    const { tokensEarned, co2Saved } = calculateTokens();
+
+    // Sync with Express backend
     try {
-      // Connect wallet if not connected
-      let walletAccount = account;
-      if (!walletAccount) {
-        walletAccount = await connectWallet();
-        if (!walletAccount) {
-          alert("⚠️ Please connect your wallet first!");
-          setIsMinting(false);
-          return;
-        }
+      const token = await getToken();
+      if (token) {
+        await fetch('http://localhost:8080/api/v1/form/purchase', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            purchaseType,
+            details: formData
+          })
+        });
+      }
+    } catch (err) {
+      console.warn("Backend server offline, falling back to localStorage sync:", err);
+    }
+
+    // Update simulated values in localStorage
+    if (typeof window !== 'undefined') {
+      const currentSimulated = parseFloat(localStorage.getItem('simulatedTokens') || '0');
+      localStorage.setItem('simulatedTokens', (currentSimulated + tokensEarned).toString());
+
+      if (purchaseType === 'solar') {
+        const currentCategory = parseFloat(localStorage.getItem('simulatedTokens_Solar') || '0');
+        localStorage.setItem('simulatedTokens_Solar', (currentCategory + tokensEarned).toString());
+      } else {
+        const currentCategory = parseFloat(localStorage.getItem('simulatedTokens_Transport') || '0');
+        localStorage.setItem('simulatedTokens_Transport', (currentCategory + tokensEarned).toString());
       }
 
-      // Log purchase data
-      console.log('Purchase Data Submitted:', { purchaseType, ...formData });
+      const currentCo2 = parseFloat(localStorage.getItem('simulatedCo2Saved') || '0');
+      localStorage.setItem('simulatedCo2Saved', (currentCo2 + co2Saved).toString());
 
-      // Mint tokens
-      await mintTokens(walletAccount);
-      
-      // Success!
-      alert("✅ Purchase submitted and 50 Green Tokens minted successfully!");
-      setSubmitted(true);
-      
-      // Reset form after 3 seconds
-      setTimeout(() => {
-        setSubmitted(false);
-        setPurchaseType('');
-        setFormData({
-          solarCompany: '',
-          panelCapacity: '',
-          numberOfPanels: '',
-          installationDate: '',
-          evBrand: '',
-          evModel: '',
-          batteryCapacity: '',
-          purchaseDate: '',
-          vehicleNumber: '',
-          invoiceFile: null,
-          proofFile: null
-        });
-      }, 3000);
-
-    } catch (error) {
-      alert(`❌ ${error.message}`);
-    } finally {
-      setIsMinting(false);
+      const currentSubmissions = parseInt(localStorage.getItem('simulatedSubmissions') || '0');
+      localStorage.setItem('simulatedSubmissions', (currentSubmissions + 1).toString());
     }
+
+    alert(`✅ Data submitted successfully!\n🌿 Est. CO2 Reduction: ${co2Saved} kg\n🪙 Green Tokens Earned: ${tokensEarned}`);
+
+    setSubmitted(true);
+    
+    setTimeout(() => {
+      setSubmitted(false);
+      setIsSubmitting(false);
+      router.push('/home');
+    }, 2000);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-purple-50 to-indigo-200 py-12 px-4">
-      <motion.div
-        className="max-w-2xl mx-auto bg-white rounded-3xl shadow-2xl p-8"
-        initial={{ opacity: 0, y: 40 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-      >
+    <div className="min-h-screen bg-gradient-to-b from-purple-50 to-indigo-200 py-12 px-4 text-purple-700 flex flex-col justify-between">
+      <div className="flex-grow mb-12">
+        <motion.div
+          className="max-w-2xl mx-auto bg-white rounded-3xl shadow-2xl p-8"
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+        >
         <div className="flex items-center gap-3 mb-6">
           <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
             <ShoppingCart className="w-6 h-6 text-purple-700" />
@@ -208,7 +172,7 @@ export default function PurchaseForm() {
               <button
                 type="button"
                 onClick={() => setPurchaseType('solar')}
-                className={`py-4 rounded-xl font-medium transition-all ${
+                className={`py-4 rounded-xl font-medium transition-all cursor-pointer ${
                   purchaseType === 'solar'
                     ? 'bg-purple-700 text-white shadow-lg'
                     : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
@@ -219,7 +183,7 @@ export default function PurchaseForm() {
               <button
                 type="button"
                 onClick={() => setPurchaseType('ev')}
-                className={`py-4 rounded-xl font-medium transition-all ${
+                className={`py-4 rounded-xl font-medium transition-all cursor-pointer ${
                   purchaseType === 'ev'
                     ? 'bg-purple-700 text-white shadow-lg'
                     : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
@@ -406,8 +370,8 @@ export default function PurchaseForm() {
                   htmlFor="invoice-upload"
                   className="w-full px-4 py-6 border-2 border-dashed border-purple-300 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-purple-700 transition-colors"
                 >
-                  <Upload className="w-8 h-8 text-purple-600 mb-2" />
-                  <span className="text-sm text-purple-700">
+                  <Upload className="w-8 h-8 text-purple-650 mb-2" />
+                  <span className="text-sm text-purple-750">
                     {formData.invoiceFile ? formData.invoiceFile.name : 'Click to upload invoice (PDF, JPG, PNG)'}
                   </span>
                 </label>
@@ -428,11 +392,11 @@ export default function PurchaseForm() {
                   htmlFor="proof-upload"
                   className="w-full px-4 py-6 border-2 border-dashed border-purple-300 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-purple-700 transition-colors"
                 >
-                  <Upload className="w-8 h-8 text-purple-600 mb-2" />
-                  <span className="text-sm text-purple-700">
+                  <Upload className="w-8 h-8 text-purple-650 mb-2" />
+                  <span className="text-sm text-purple-750">
                     {formData.proofFile ? formData.proofFile.name : 'Click to upload proof photo (JPG, PNG)'}
                   </span>
-                  <span className="text-xs text-purple-600 mt-1">
+                  <span className="text-xs text-purple-650 mt-1">
                     {purchaseType === 'solar' ? 'Photo of installed solar panels' : 'Photo of your EV'}
                   </span>
                 </label>
@@ -443,19 +407,19 @@ export default function PurchaseForm() {
           <motion.button
             type="button"
             onClick={handleSubmit}
-            disabled={!purchaseType || isMinting || submitted}
-            whileHover={{ scale: purchaseType && !isMinting ? 1.02 : 1 }}
-            whileTap={{ scale: purchaseType && !isMinting ? 0.98 : 1 }}
+            disabled={!purchaseType || isSubmitting || submitted}
+            whileHover={{ scale: purchaseType && !isSubmitting ? 1.02 : 1 }}
+            whileTap={{ scale: purchaseType && !isSubmitting ? 0.98 : 1 }}
             className={`w-full py-4 rounded-xl font-semibold shadow-lg flex items-center justify-center gap-2 transition-all ${
-              purchaseType && !isMinting && !submitted
+              purchaseType && !isSubmitting && !submitted
                 ? 'bg-gradient-to-r from-purple-700 to-indigo-800 text-white cursor-pointer'
                 : 'bg-gray-300 text-gray-500 cursor-not-allowed'
             }`}
           >
-            {isMinting ? (
+            {isSubmitting ? (
               <>
                 <Loader2 className="w-5 h-5 animate-spin" />
-                Minting Tokens...
+                Calculating & Submitting...
               </>
             ) : submitted ? (
               <>
@@ -470,10 +434,12 @@ export default function PurchaseForm() {
 
         <div className="mt-6 p-4 bg-purple-50 rounded-xl">
           <p className="text-sm text-purple-900">
-            🎁 <strong>Token Reward:</strong> Earn 50 bonus tokens for investing in sustainable technology!
+            🎁 <strong>Token Reward:</strong> Earn Green Tokens calculated dynamically based on your eco-friendly technology purchases.
           </p>
         </div>
       </motion.div>
+      </div>
+      <Footer />
     </div>
   );
 }

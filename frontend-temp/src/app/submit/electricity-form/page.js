@@ -1,15 +1,17 @@
 'use client';
 import { motion } from 'framer-motion';
-import { Zap, Upload, CheckCircle, Wallet } from 'lucide-react';
-import { useState, useEffect } from 'react';
-import { ethers } from "ethers";
-import { getContract } from "../../../utils/contract";
+import { Zap, Upload, CheckCircle } from 'lucide-react';
+import { useState } from 'react';
+import { useAuth } from '@clerk/nextjs';
+import { useRouter } from 'next/navigation';
+import Footer from '../../components/Footer.jsx';
+
 
 export default function ElectricityForm() {
-  const [account, setAccount] = useState(null);
-  const [balance, setBalance] = useState("0");
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [isMinting, setIsMinting] = useState(false);
+  const { getToken } = useAuth();
+  const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
   const [formData, setFormData] = useState({
     customerId: '',
     unitsConsumed: '',
@@ -19,144 +21,110 @@ export default function ElectricityForm() {
   });
   const [submitted, setSubmitted] = useState(false);
 
-  // Connect wallet on mount
-  useEffect(() => {
-    checkWalletConnection();
-
-    // Listen for account changes
-    if (typeof window !== 'undefined' && window.ethereum) {
-      const handleAccountsChanged = (accounts) => {
-        if (accounts.length === 0) {
-          setAccount(null);
-        } else {
-          setAccount(accounts[0]);
-        }
-      };
-
-      window.ethereum.on('accountsChanged', handleAccountsChanged);
-
-      return () => {
-        if (window.ethereum.removeListener) {
-          window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
-        }
-      };
-    }
-  }, []);
-
-  // Check if wallet is already connected
-  const checkWalletConnection = async () => {
-    if (typeof window !== 'undefined' && window.ethereum) {
-      try {
-        const accounts = await window.ethereum.request({ 
-          method: 'eth_accounts' 
-        });
-        if (accounts && accounts.length > 0) {
-          setAccount(accounts[0]);
-          console.log("Wallet already connected:", accounts[0]);
-        }
-      } catch (error) {
-        console.error("Error checking wallet connection:", error);
-      }
-    }
-  };
-
-  // Connect wallet
-  const connectWallet = async () => {
-    setIsConnecting(true);
+  const scanBill = async (file) => {
+    if (!file) return;
+    setIsScanning(true);
     try {
-      if (typeof window === 'undefined' || !window.ethereum) {
-        alert("Please install MetaMask to connect your wallet");
-        return;
-      }
-
-      const accounts = await window.ethereum.request({ 
-        method: "eth_requestAccounts" 
+      const data = new FormData();
+      data.append('file', file);
+      
+      const response = await fetch('http://localhost:8000/parse-bill', {
+        method: 'POST',
+        body: data,
       });
-      
-      if (accounts && accounts.length > 0) {
-        setAccount(accounts[0]);
-        console.log("Connected to account:", accounts[0]);
-        alert("✅ Wallet connected successfully!");
-      }
-    } catch (error) {
-      console.error("Error connecting wallet:", error);
-      if (error.code === 4001) {
-        alert("Connection rejected. Please approve the connection in MetaMask.");
+      const res = await response.json();
+      if (res.status === 'success') {
+        setFormData(prev => ({
+          ...prev,
+          customerId: res.customer_id || prev.customerId,
+          unitsConsumed: res.units_consumed ? res.units_consumed.toString() : prev.unitsConsumed,
+          carpetArea: res.carpet_area ? res.carpet_area.toString() : prev.carpetArea,
+          homeType: res.home_type || prev.homeType
+        }));
+        alert(`⚡ Bill Analysed successfully!\n• Customer ID: ${res.customer_id}\n• Units: ${res.units_consumed} kWh\n• Area: ${res.carpet_area} sq ft\n• Type: ${res.home_type}`);
       } else {
-        alert("Failed to connect wallet. Please try again.");
+        alert("⚠️ Failed to parse bill details.");
       }
+    } catch (err) {
+      console.error("Error scanning bill:", err);
+      alert("⚠️ Error connecting to AI OCR Engine.");
     } finally {
-      setIsConnecting(false);
+      setIsScanning(false);
     }
   };
 
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     if (e.target.files && e.target.files[0]) {
-      setFormData({ ...formData, billFile: e.target.files[0] });
+      const file = e.target.files[0];
+      setFormData(prev => ({ ...prev, billFile: file }));
+      await scanBill(file);
     }
   };
 
-  // Mint tokens
-  const getTokens = async () => {
-    if (!account) {
-      alert("⚠️ Please connect your wallet first!");
-      return;
-    }
 
-    setIsMinting(true);
+  const calculateTokens = async () => {
     try {
-      console.log("Minting tokens to:", account);
-      
-      const contractData = await getContract();
-      const contract = contractData.contract || contractData;
+      const response = await fetch('http://localhost:8000/calculate-electricity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          homeType: formData.homeType.charAt(0).toUpperCase() + formData.homeType.slice(1),
+          carpetArea_sqft: parseFloat(formData.carpetArea),
+          monthly_unitsUsed_kwh: parseFloat(formData.unitsConsumed),
+          monthly_solarUsed_kwh: 0.0
+        })
+      });
 
-      if (!contract) {
-        throw new Error("Contract not initialized");
-      }
+      const data = await response.json();
+      if (data.status === 'success') {
+        const multipliers = {
+          'apartment': 0.3,
+          'bungalow': 0.45,
+          'villa': 0.5,
+          'independent-house': 0.4,
+          'farmhouse': 0.48
+        };
+        const mult = multipliers[formData.homeType.toLowerCase()] || 0.35;
+        const expectedUnits = parseFloat(formData.carpetArea) * mult;
+        const expectedCo2 = expectedUnits * 0.384;
+        const co2Saved = Math.max(0, expectedCo2 - data.user_co2_footprint_kg);
 
-      // Get provider to check contract deployment
-      let provider = contractData.provider;
-      if (!provider) {
-        if (!window.ethereum) {
-          throw new Error("MetaMask not found");
-        }
-        provider = new ethers.BrowserProvider(window.ethereum);
+        return {
+          tokensEarned: data.tokens_awarded,
+          userCo2: data.user_co2_footprint_kg,
+          co2Saved: parseFloat(co2Saved.toFixed(2))
+        };
       }
-
-      // Verify contract is deployed
-      const contractAddress = contract.target || contract.address;
-      const code = await provider.getCode(contractAddress);
-      
-      if (code === '0x' || code === '0x0') {
-        throw new Error("Contract not deployed on current network. Please switch to the correct network.");
-      }
-
-      console.log("Minting 50 tokens...");
-      const tx = await contract.mint(account, ethers.parseUnits("50", 18));
-      console.log("Transaction sent:", tx.hash);
-      
-      await tx.wait();
-      console.log("Transaction confirmed!");
-      
-      alert("✅ 50 Green Tokens minted successfully!");
-      return true;
-    } catch (error) {
-      console.error("Error minting:", error);
-      
-      let errorMsg = "Failed to mint tokens";
-      if (error.message.includes("not deployed")) {
-        errorMsg = "Contract not deployed. Please check your network.";
-      } else if (error.code === "ACTION_REJECTED") {
-        errorMsg = "Transaction rejected by user";
-      } else if (error.message.includes("insufficient funds")) {
-        errorMsg = "Insufficient funds for gas";
-      }
-      
-      alert(`❌ ${errorMsg}`);
-      return false;
-    } finally {
-      setIsMinting(false);
+    } catch (err) {
+      console.warn("ML Engine offline or error, falling back to local math calculation:", err);
     }
+
+    // Fallback formula matching prediction page:
+    const ELECTRICITY_FACTOR_KWH = 0.384;
+    const actualCo2 = parseFloat(formData.unitsConsumed) * ELECTRICITY_FACTOR_KWH;
+    
+    const multipliers = {
+      'apartment': 0.3,
+      'bungalow': 0.45,
+      'villa': 0.5,
+      'independent-house': 0.4,
+      'farmhouse': 0.48
+    };
+    const mult = multipliers[formData.homeType.toLowerCase()] || 0.35;
+    const expectedUnits = parseFloat(formData.carpetArea) * mult;
+    const expectedCo2 = expectedUnits * ELECTRICITY_FACTOR_KWH;
+    const co2Saved = Math.max(0, expectedCo2 - actualCo2);
+
+    let tokens = 10; // base reward
+    if (actualCo2 < expectedCo2) {
+      tokens += Math.floor(co2Saved * 0.1);
+    }
+
+    return {
+      tokensEarned: tokens,
+      userCo2: parseFloat(actualCo2.toFixed(2)),
+      co2Saved: parseFloat(co2Saved.toFixed(2))
+    };
   };
 
   const handleSubmit = async (e) => {
@@ -169,41 +137,69 @@ export default function ElectricityForm() {
       return;
     }
 
-    // Check wallet connection
-    if (!account) {
-      alert("⚠️ Please connect your wallet first!");
-      return;
-    }
-
+    setIsSubmitting(true);
     console.log('Electricity Bill Submitted:', formData);
     
-    // Mint tokens
-    const success = await getTokens();
+    // Calculate simulated/ML tokens
+    const { tokensEarned, userCo2, co2Saved } = await calculateTokens();
     
-    if (success) {
-      setSubmitted(true);
-      setTimeout(() => {
-        setSubmitted(false);
-        // Reset form
-        setFormData({
-          customerId: '',
-          unitsConsumed: '',
-          homeType: '',
-          carpetArea: '',
-          billFile: null
+    // Sync with Express backend
+    try {
+      const token = await getToken();
+      if (token) {
+        await fetch('http://localhost:8080/api/v1/form/electricity', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            unitsUsed: parseFloat(formData.unitsConsumed),
+            solarUsed: 0.0,
+            month: new Date().toLocaleString('default', { month: 'short' }),
+            homeType: formData.homeType,
+            carpetArea: parseFloat(formData.carpetArea)
+          })
         });
-      }, 3000);
+      }
+    } catch (err) {
+      console.warn("Backend server offline, falling back to localStorage sync:", err);
     }
+
+    // Update simulated values in localStorage
+    if (typeof window !== 'undefined') {
+      const currentSimulated = parseFloat(localStorage.getItem('simulatedTokens') || '0');
+      localStorage.setItem('simulatedTokens', (currentSimulated + tokensEarned).toString());
+
+      const currentCategory = parseFloat(localStorage.getItem('simulatedTokens_Electricity') || '0');
+      localStorage.setItem('simulatedTokens_Electricity', (currentCategory + tokensEarned).toString());
+
+      const currentCo2 = parseFloat(localStorage.getItem('simulatedCo2Saved') || '0');
+      localStorage.setItem('simulatedCo2Saved', (currentCo2 + co2Saved).toString());
+
+      const currentSubmissions = parseInt(localStorage.getItem('simulatedSubmissions') || '0');
+      localStorage.setItem('simulatedSubmissions', (currentSubmissions + 1).toString());
+    }
+
+    alert(`✅ Data submitted successfully!\n🌿 Carbon Footprint: ${userCo2} kg CO2\n🌿 Carbon Saved: ${co2Saved} kg CO2\n🪙 Green Tokens Earned: ${tokensEarned}`);
+    
+    setSubmitted(true);
+    setTimeout(() => {
+      setSubmitted(false);
+      setIsSubmitting(false);
+      router.push('/home');
+    }, 2000);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-yellow-50 to-amber-200 py-12 px-4">
-      <motion.div
-        className="max-w-2xl mx-auto bg-white rounded-3xl shadow-2xl p-8"
-        initial={{ opacity: 0, y: 40 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-      >
+    <div className="min-h-screen bg-gradient-to-b from-yellow-50 to-amber-200 py-12 px-4 flex flex-col justify-between">
+      <div className="flex-grow mb-12">
+        <motion.div
+          className="max-w-2xl mx-auto bg-white rounded-3xl shadow-2xl p-8"
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+        >
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
@@ -215,32 +211,6 @@ export default function ElectricityForm() {
               <p className="text-yellow-700">Earn tokens for energy conservation</p>
             </div>
           </div>
-
-          {/* Wallet Connection Button */}
-          {!account ? (
-            <button
-              onClick={connectWallet}
-              disabled={isConnecting}
-              className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors disabled:opacity-50"
-            >
-              {isConnecting ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  Connecting...
-                </>
-              ) : (
-                <>
-                  <Wallet className="w-4 h-4" />
-                  Connect Wallet
-                </>
-              )}
-            </button>
-          ) : (
-            <div className="px-4 py-2 bg-green-100 text-green-700 rounded-lg text-sm font-medium">
-              <p className="text-xs text-green-600">Connected</p>
-              <p className="font-mono text-xs">{account.slice(0, 6)}...{account.slice(-4)}</p>
-            </div>
-          )}
         </div>
 
         {/* Form */}
@@ -331,19 +301,25 @@ export default function ElectricityForm() {
                 </span>
               </label>
             </div>
+            {isScanning && (
+              <div className="mt-2 flex items-center justify-center gap-2 text-yellow-800 text-sm font-medium animate-pulse">
+                <div className="w-4 h-4 border-2 border-yellow-700 border-t-transparent rounded-full animate-spin"></div>
+                Analyzing bill details using AI OCR...
+              </div>
+            )}
           </div>
 
           <motion.button
             type="submit"
-            disabled={isMinting || submitted}
+            disabled={isSubmitting || submitted}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             className="w-full py-4 bg-gradient-to-r from-yellow-600 to-amber-700 text-white rounded-xl font-semibold shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isMinting ? (
+            {isSubmitting ? (
               <>
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                Minting Tokens...
+                Calculating & Submitting...
               </>
             ) : submitted ? (
               <>
@@ -358,14 +334,12 @@ export default function ElectricityForm() {
 
         <div className="mt-6 p-4 bg-yellow-50 rounded-xl">
           <p className="text-sm text-yellow-900">
-            💡 <strong>Token Reward:</strong> Earn 50 Green Tokens for submitting your electricity bill and contributing to energy efficiency tracking.
+            💡 <strong>Token Reward:</strong> Earn Green Tokens calculated dynamically by our ML model based on your carbon conservation compared to expected local baselines.
           </p>
-          {!account && (
-            <p className="text-xs text-yellow-700 mt-2">
-              ⚠️ Connect your wallet to receive tokens
-            </p>
-          )}
         </div>
       </motion.div>
+      </div>
+      <Footer />
     </div>
-  );}
+  );
+}

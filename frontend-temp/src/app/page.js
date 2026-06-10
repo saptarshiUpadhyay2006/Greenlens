@@ -5,6 +5,7 @@ import page from '../app/welcome/page'
 import MouseFollower from './components/MouseFollower';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
+import FeaturesShowcase from './components/FeaturesShowcase';
 import CarbonFootprint from './components/CarbonFootprint';
 import WhatWeDo from './components/WhatWeDo';
 import HowItWorks from './components/HowItWorks';
@@ -47,7 +48,7 @@ export default function Page() {
     // GSAP cinematic scroll
     gsap.to('.carbon-section', {
       scrollTrigger: {
-        trigger: '.hero-section',
+        trigger: '.features-section',
         start: 'bottom bottom',
         end: '+=120%',
         scrub: true,
@@ -56,9 +57,9 @@ export default function Page() {
       ease: 'power2.out',
     });
 
-    gsap.to('.hero-section', {
+    gsap.to('.features-section', {
       scrollTrigger: {
-        trigger: '.hero-section',
+        trigger: '.features-section',
         start: 'bottom bottom',
         end: '+=40%',
         scrub: true,
@@ -82,6 +83,10 @@ export default function Page() {
 
       <section id="hero" className="hero-section relative h-screen w-full">
         <Hero />
+      </section>
+
+      <section id="features" className="features-section relative w-full z-15">
+        <FeaturesShowcase />
       </section>
 
       <section id="about" className="carbon-section relative h-screen w-full z-10">
