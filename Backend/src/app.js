@@ -32,6 +32,18 @@ app.get("/", (req, res) => {
   res.send("GreenLens backend running successfully!");
 });
 
+// --- Global Error Handler ---
+app.use((err, req, res, next) => {
+  const statusCode = err.statusCode || 500;
+  const message = err.message || "Internal Server Error";
+  return res.status(statusCode).json({
+    success: false,
+    statusCode,
+    message,
+    errors: err.errors || [],
+  });
+});
+
 // --- Export app ---
 export { app };
 
