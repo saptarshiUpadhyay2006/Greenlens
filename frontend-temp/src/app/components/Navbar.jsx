@@ -59,8 +59,7 @@ export default function Navbar() {
     e.preventDefault()
     const target = document.querySelector(href)
     if (target) {
-      const lenis = new Lenis()
-      lenis.scrollTo(target)
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
   }
 
