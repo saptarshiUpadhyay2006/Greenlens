@@ -14,9 +14,9 @@ export const authMiddleware = async (req, res, next) => {
   const token = authHeader.split(" ")[1];
 
   try {
-    const session = await clerk.sessions.verifySession(token);
+    const decoded = await clerk.verifyToken(token);
 
-    req.auth = { userId: session.userId };
+    req.auth = { userId: decoded.sub };
 
     next();
   } catch (error) {
