@@ -28,7 +28,7 @@ export default function ElectricityForm() {
       const data = new FormData();
       data.append('file', file);
       
-      const response = await fetch('http://localhost:8000/parse-bill', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_ML_API_URL || 'http://localhost:8000'}/parse-bill`, {
         method: 'POST',
         body: data,
       });
@@ -64,7 +64,7 @@ export default function ElectricityForm() {
 
   const calculateTokens = async () => {
     try {
-      const response = await fetch('http://localhost:8000/calculate-electricity', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_ML_API_URL || 'http://localhost:8000'}/calculate-electricity`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -147,7 +147,7 @@ export default function ElectricityForm() {
     try {
       const token = await getToken();
       if (token) {
-        await fetch('http://localhost:8080/api/v1/form/electricity', {
+        await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'}/form/electricity`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,

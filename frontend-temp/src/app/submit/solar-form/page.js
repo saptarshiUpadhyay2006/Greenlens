@@ -64,7 +64,7 @@ export default function SolarForm() {
           bodyFormData.append("solarBillProof", blob, "mock-bill.txt");
         }
 
-        await fetch('http://localhost:8080/api/v1/form/solar', {
+        await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'}/form/solar`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`

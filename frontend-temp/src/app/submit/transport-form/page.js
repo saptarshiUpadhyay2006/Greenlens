@@ -60,7 +60,7 @@ export default function TransportForm() {
     const kmCovered = parseFloat(formData.distance) || 20;
 
     try {
-      const response = await fetch('http://localhost:8000/calculate-travel', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_ML_API_URL || 'http://localhost:8000'}/calculate-travel`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -178,7 +178,7 @@ export default function TransportForm() {
         else if (vehicleType === 'cycle') backendMode = 'bicycle';
         else if (vehicleType === 'public-transport') backendMode = 'public transport';
 
-        await fetch('http://localhost:8080/api/v1/form/transport', {
+        await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'}/form/transport`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,

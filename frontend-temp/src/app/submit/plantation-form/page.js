@@ -86,7 +86,7 @@ export default function PlantationForm() {
           bodyFormData.append("plantImage", blob, "mock-tree.txt");
         }
 
-        await fetch('http://localhost:8080/api/v1/form/plantation', {
+        await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'}/form/plantation`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`

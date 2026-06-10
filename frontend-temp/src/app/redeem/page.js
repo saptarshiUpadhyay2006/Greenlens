@@ -59,7 +59,7 @@ const SubmitPage = () => {
     try {
       const token = await getToken();
       if (token) {
-        const response = await fetch('http://localhost:8080/api/v1/users/dashboard', {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'}/users/dashboard`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -89,7 +89,7 @@ const SubmitPage = () => {
     try {
       const token = await getToken();
       if (token) {
-        const response = await fetch('http://localhost:8080/api/v1/users/redeem', {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'}/users/redeem`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,

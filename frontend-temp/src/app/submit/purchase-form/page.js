@@ -96,7 +96,7 @@ export default function PurchaseForm() {
     try {
       const token = await getToken();
       if (token) {
-        await fetch('http://localhost:8080/api/v1/form/purchase', {
+        await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'}/form/purchase`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,

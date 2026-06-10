@@ -45,7 +45,7 @@ export default function UserProfile() {
         if (!token) return;
 
         // 1. Sync User with MongoDB
-        await fetch('http://localhost:8080/api/v1/users/sync', {
+        await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'}/users/sync`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -59,7 +59,7 @@ export default function UserProfile() {
         });
 
         // 2. Fetch Dashboard stats from MongoDB
-        const dashResponse = await fetch('http://localhost:8080/api/v1/users/dashboard', {
+        const dashResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'}/users/dashboard`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }

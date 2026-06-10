@@ -100,7 +100,7 @@ export default function PredictionPage() {
 
   // Check backend server connection on mount
   useEffect(() => {
-    fetch('http://localhost:8000/')
+    fetch(`${process.env.NEXT_PUBLIC_ML_API_URL || 'http://localhost:8000'}/`)
       .then(res => res.json())
       .then(() => setIsApiConnected(true))
       .catch(() => setIsApiConnected(false));
@@ -121,7 +121,7 @@ export default function PredictionPage() {
     // 1. Calculate Electricity
     if (isApiConnected) {
       try {
-        const response = await fetch('http://localhost:8000/calculate-electricity', {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_ML_API_URL || 'http://localhost:8000'}/calculate-electricity`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -172,7 +172,7 @@ export default function PredictionPage() {
     // 2. Calculate Travel
     if (isApiConnected) {
       try {
-        const response = await fetch('http://localhost:8000/calculate-travel', {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_ML_API_URL || 'http://localhost:8000'}/calculate-travel`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -255,7 +255,7 @@ export default function PredictionPage() {
 
   const retryApiConnection = () => {
     setIsApiConnected(null);
-    fetch('http://localhost:8000/')
+    fetch(`${process.env.NEXT_PUBLIC_ML_API_URL || 'http://localhost:8000'}/`)
       .then(res => res.json())
       .then(() => setIsApiConnected(true))
       .catch(() => setIsApiConnected(false));
