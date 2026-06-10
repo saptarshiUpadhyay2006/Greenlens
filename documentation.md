@@ -76,13 +76,6 @@ PORT=8080
 # CORS Allowed Origin
 CORS_ORIGIN=https://greenlens-spuk.vercel.com
 
-# Ethereum Sepolia Blockchain Config
-ALCHEMY_URL=https://eth-sepolia.g.alchemy.com/v2/your_alchemy_api_key
-PRIVATE_KEY=your_ethereum_private_key
-CONTRACT_ADDRESS=0xe193Ab4CE56C329AB295ef3fC79a2bc6aBcf0dD8
-BLOCKCHAIN_PORT=5001
-BLOCKCHAIN_API_URL=http://localhost:5001
-
 # AI/ML FastAPI Service URL
 ML_API_URL=https://greenlens-s4q8.onrender.com
 
