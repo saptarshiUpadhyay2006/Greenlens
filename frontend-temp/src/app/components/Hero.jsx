@@ -88,11 +88,11 @@ useEffect(() => {
   };
 }, []);
   return (
-    <div className="h-screen w-screen bg-white flex overflow-hidden relative bg-fixed">
+    <div className="h-screen w-screen bg-white flex flex-col md:flex-row overflow-hidden relative bg-fixed">
         {/* Decorative SVG Background */}
         <svg
           viewBox="0 0 200 200"
-          className="absolute -top-300 -left-300 self-start opacity-30"
+          className="absolute -top-300 -left-300 self-start opacity-30 pointer-events-none"
           style={{ transform: 'scale(0.5)' }}
           xmlns="http://www.w3.org/2000/svg"
         >
@@ -105,37 +105,36 @@ useEffect(() => {
 
         {/* Left Section */}
         <div
-          className="sec-1 w-[50%] h-[70%] self-center m-8 bg-clip-text flex flex-col justify-center overflow-visible ml-12"
+          className="sec-1 w-full md:w-[50%] h-[55%] md:h-[70%] self-center flex flex-col justify-center overflow-visible px-6 sm:px-10 md:px-0 md:ml-12 m-0 md:m-8 bg-clip-text"
           style={{
             backgroundImage: `radial-gradient(circle, rgba(0,0,0,0) 60%, rgba(0,0,0,0.6) 100%), url(/leaves.jpg)`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
           }}
         >
-          <h1 className="text-transparent text-7xl font-black font-inter uppercase">
+          <h1 className="text-transparent text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black font-inter uppercase leading-none">
             Shrink Your Footprint,
           </h1>
-          <h1 className="text-transparent text-5xl font-black font-inter uppercase">
+          <h1 className="text-transparent text-3xl sm:text-4xl md:text-5xl font-black font-inter uppercase leading-none mt-1">
             Grow Your Impact
           </h1>
-          <h4 className="text-black text-2xl font-light mt-4 w-[90%]">
+          <h4 className="text-black text-base sm:text-lg md:text-xl lg:text-2xl font-light mt-3 md:mt-4 w-full md:w-[90%] leading-relaxed">
             GreenLens helps you measure your daily carbon footprint and reward eco-friendly choices.
           </h4>
-        <Link href={isSignedIn ? '/home' : '/auth'} className='h-[10%]'>
-        <button
-            ref={buttonRef}
-            className="h-full w-[40%] bg-transparent border-2 border-black rounded-full mt-8 text-black text-xl font-medium hover:bg-black hover:text-white transition-all duration-300 ease-in-out pointer-events-auto z-10"
-          >
-            Get Started
-          </button>
-       
-        </Link>
+          <Link href={isSignedIn ? '/home' : '/auth'} className="h-10 sm:h-12 md:h-[10%] mt-6 md:mt-8 block">
+            <button
+              ref={buttonRef}
+              className="h-full w-40 sm:w-48 md:w-[40%] bg-transparent border-2 border-black rounded-full text-black text-sm sm:text-base md:text-lg font-bold hover:bg-black hover:text-white transition-all duration-300 ease-in-out pointer-events-auto z-10"
+            >
+              Get Started
+            </button>
+          </Link>
          </div>
           
 
         {/* Right Section */}
         <div
-          className="sec2 bg-[#fdffff] w-[50%] mr-0 h-full self-center"
+          className="sec2 bg-[#fdffff] w-full md:w-[50%] h-[45%] md:h-full self-center mr-0"
           style={{
             backgroundImage: `url(/hero1.png)`,
             backgroundSize: 'cover',
@@ -144,7 +143,7 @@ useEffect(() => {
         />
 
         {/* Scroll Prompt */}
-        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex flex-col items-center text-gray-600">
+        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex flex-col items-center text-gray-600 pointer-events-none">
           <div className="w-8 h-12 border-2 border-gray-400 rounded-full flex justify-center items-start p-1">
             <span ref={arrowRef} className="text-gray-500 text-lg leading-none select-none">
               <ChevronsDown />
@@ -152,7 +151,7 @@ useEffect(() => {
           </div>
         </div>
 
-     
+      
       </div>
   )
 }
