@@ -55,8 +55,8 @@ To configure development environments locally, configure the following `.env` co
 ### Next.js Client Configuration (`frontend-temp/.env`)
 ```env
 # Clerk Keys (Auth)
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_cmVzb2x2ZWQtYnVjay00OC5jbGVyay5hY2NvdW50cy5kZXYk
-CLERK_SECRET_KEY=sk_test_DOA4pjXrcX1mIpwrG5Ap3HRUzwIkGilrv7XhNvNSo3
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
+CLERK_SECRET_KEY=your_clerk_secret_key
 NEXT_PUBLIC_CLERK_SIGN_IN_URL=/auth
 NEXT_PUBLIC_CLERK_SIGN_UP_URL=/auth
 
@@ -70,15 +70,15 @@ NEXT_PUBLIC_ML_API_URL=https://greenlens-s4q8.onrender.com
 ### Express Gateway Configuration (`Backend/.env`)
 ```env
 # MongoDB Database URI
-MONGODB_URI=mongodb+srv://upadhyaysaptarshi_db_user:xEDR0HxmuwlC0le1@cluster0.jtmxgqq.mongodb.net/greenlens?retryWrites=true&w=majority&appName=Cluster0
+MONGODB_URI=mongodb+srv://<username>:<password>@<cluster>.mongodb.net/<dbname>?retryWrites=true&w=majority
 PORT=8080
 
 # CORS Allowed Origin
 CORS_ORIGIN=https://greenlens-spuk.vercel.com
 
 # Ethereum Sepolia Blockchain Config
-ALCHEMY_URL=https://eth-sepolia.g.alchemy.com/v2/SYroViAcxDUZjbLXZbA3K
-PRIVATE_KEY=b708fa08e402b7e5452a47180c9f88bcce9faef9ea831aa56674d20647556b83
+ALCHEMY_URL=https://eth-sepolia.g.alchemy.com/v2/your_alchemy_api_key
+PRIVATE_KEY=your_ethereum_private_key
 CONTRACT_ADDRESS=0xe193Ab4CE56C329AB295ef3fC79a2bc6aBcf0dD8
 BLOCKCHAIN_PORT=5001
 BLOCKCHAIN_API_URL=http://localhost:5001
@@ -87,12 +87,12 @@ BLOCKCHAIN_API_URL=http://localhost:5001
 ML_API_URL=https://greenlens-s4q8.onrender.com
 
 # Clerk Secret Key
-CLERK_SECRET_KEY=sk_test_YOUR_CLERK_SECRET_KEY
+CLERK_SECRET_KEY=your_clerk_secret_key
 
 # Cloudinary Storage Integrations
-CLOUDINARY_CLOUD_NAME=dxajnv1m3
-CLOUDINARY_API_KEY=776559314141549
-CLOUDINARY_API_SECRET=8uZCnfsaL4RaW6JjJWNQcuitY90
+CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
+CLOUDINARY_API_KEY=your_cloudinary_api_key
+CLOUDINARY_API_SECRET=your_cloudinary_api_secret
 ```
 
 ---

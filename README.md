@@ -40,8 +40,8 @@ Ensure the environment files are configured prior to running the applications.
 
 ### 1. Frontend (`frontend-temp/.env`)
 ```env
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_cmVzb2x2ZWQtYnVjay00OC5jbGVyay5hY2NvdW50cy5kZXYk
-CLERK_SECRET_KEY=sk_test_DOA4pjXrcX1mIpwrG5Ap3HRUzwIkGilrv7XhNvNSo3
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
+CLERK_SECRET_KEY=your_clerk_secret_key
 NEXT_PUBLIC_CLERK_SIGN_IN_URL=/auth
 NEXT_PUBLIC_CLERK_SIGN_UP_URL=/auth
 NEXT_PUBLIC_API_URL=https://greenlens-express-backend.onrender.com/api/v1
