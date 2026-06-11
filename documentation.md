@@ -1,10 +1,10 @@
-# 🌳 GreenLens – End-to-End System Documentation
+#  GreenLens – End-to-End System Documentation
 
 Welcome to the technical documentation for **GreenLens**—a modular, smart sustainability platform that helps users track, verify, and offset their carbon footprint. Users earn **Green Tokens** for verified eco-friendly actions like energy saving and low-carbon travel.
 
 ---
 
-## 🗺️ System Architecture
+## System Architecture
 
 GreenLens is built on a multi-tier microservice layout:
 1. **Frontend App**: Next.js (React + TailwindCSS + Framer Motion) client hosted at `https://greenlens-spuk.vercel.com`.
@@ -22,7 +22,7 @@ graph TD
 
 ---
 
-## 🚀 Microservices & Deployments
+## Microservices & Deployments
 
 ### 1. Next.js Frontend (Vercel)
 * **Live URL**: `https://greenlens-spuk.vercel.com`
@@ -41,7 +41,7 @@ graph TD
 
 ---
 
-## 🛠️ Environment Configuration Guide
+## Environment Configuration Guide
 
 To configure development environments locally, configure the following `.env` configurations:
 
@@ -83,7 +83,7 @@ CLOUDINARY_API_SECRET=your_cloudinary_api_secret
 
 ---
 
-## 🗄️ Database Schema & Models
+## Database Schema & Models
 
 Data models are defined in [models.js](file:///Users/saptarshiupadhyay/Green-Lens/Backend/src/models/models.js):
 
@@ -173,7 +173,7 @@ Authentication middleware validates Clerk's JWT bearer token under `Authorizatio
 
 ---
 
-## 🐍 Python FastAPI Engine Routes (`main.py`)
+## Python FastAPI Engine Routes (`main.py`)
 
 * **`POST /parse-bill`**: Extracts invoice data from files (PDF/Image format) via OCR and regular expressions (Regex patterns look for Customer ID, Carpet Area, and Units Used).
 * **`POST /calculate-electricity`**: Implements electricity carbon algorithms. Uses a local machine learning regression model (`electricity_benchmark_model.pkl`) to predict expected carbon footprint based on carpet area and housing type, then rewards users if their grid consumption is below the ML expected benchmark.
@@ -186,7 +186,7 @@ Authentication middleware validates Clerk's JWT bearer token under `Authorizatio
 
 ---
 
-## ⚡ Step-by-Step Feature Workflows
+## Step-by-Step Feature Workflows
 
 ### 1. Login & Clerk Synchronisation Workflow
 1. User authenticates on Vercel (`/auth`) via Clerk's widget interface.
