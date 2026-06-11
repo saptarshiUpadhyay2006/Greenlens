@@ -1,6 +1,6 @@
 # 🌳 GreenLens – End-to-End System Documentation
 
-Welcome to the technical documentation for **GreenLens**—a modular, smart sustainability platform that helps users track, verify, and offset their carbon footprint. Users earn **Green Tokens** minted via Sepolia Testnet smart contracts for verified eco-friendly actions like energy saving and low-carbon travel.
+Welcome to the technical documentation for **GreenLens**—a modular, smart sustainability platform that helps users track, verify, and offset their carbon footprint. Users earn **Green Tokens** for verified eco-friendly actions like energy saving and low-carbon travel.
 
 ---
 
@@ -10,7 +10,6 @@ GreenLens is built on a multi-tier microservice layout:
 1. **Frontend App**: Next.js (React + TailwindCSS + Framer Motion) client hosted at `https://greenlens-spuk.vercel.com`.
 2. **Gateway Backend API**: Node.js & Express server handling Clerk authentications, database management, and microservice orchestration, hosted at `https://greenlens-express-backend.onrender.com`.
 3. **AI/ML Engine**: Python FastAPI microservice calculating carbon offsets, simulating models, and parsing utility bills, hosted at `https://greenlens-s4q8.onrender.com`.
-4. **Blockchain Layer**: Solidity smart contracts deployed on the Ethereum Sepolia Testnet (`0xe193Ab4CE56C329AB295ef3fC79a2bc6aBcf0dD8`), integrated via Ethers.js helper scripts.
 
 ```mermaid
 graph TD
@@ -19,8 +18,6 @@ graph TD
     Frontend <-->|Direct Calculations / Simulation| FastAPI[FastAPI ML Engine<br/>greenlens-s4q8.onrender.com]
     ExpressGate <-->|Internal Calculations| FastAPI
     ExpressGate <-->|Database Queries| MongoDB[(MongoDB Atlas)]
-    ExpressGate <-->|Redeem / Burn Call| EthHelper[Blockchain Helper Service<br/>Port 5001]
-    EthHelper <-->|Alchemy RPC Provider| Sepolia[Ethereum Sepolia Testnet]
 ```
 
 ---
@@ -41,10 +38,6 @@ graph TD
 * **Live URL**: `https://greenlens-s4q8.onrender.com`
 * **Directory**: `/Backend`
 * **Port (Local)**: `http://localhost:8000` (FastAPI Entry point at `main.py`)
-
-### 4. Blockchain Helper Server
-* **Local Daemon Port**: `http://localhost:5001` (Node Entry point at `server.js`)
-* **Ethereum RPC**: Sepolia Testnet via Alchemy provider API.
 
 ---
 
@@ -102,7 +95,7 @@ Tracks demographic and core carbon footprints:
 * `avatarUrl` (`String`): User profile image path.
 * `adhaar` (`String`, unique, sparse): Aadhaar number (KYC validation).
 * `addressId` (`ObjectId` ref `Address`): Pointer to the user's primary address.
-* `greenTokens` (`Number`, default `0`): Local balance of on-chain tokens.
+* `greenTokens` (`Number`, default `0`): Local balance of green tokens.
 * `badges` (`Array[String]`): Unlocked gamification levels.
 * `trustLvl` (`Number`, default `0`, range `0-100`): Credibility level based on verification history.
 * `carbonFootprint` (`Number`, default `0`): Calculated carbon footprint (in kg CO2).
@@ -161,7 +154,7 @@ Authentication middleware validates Clerk's JWT bearer token under `Authorizatio
 * `GET /dashboard`: Gathers profile details, lifetime token metrics, current month's electricity units, vehicle runs, and active badges.
 * `POST /sync`: Synchronizes user info from Clerk to MongoDB. Creates a default address and awards a starting balance of `100` green tokens.
 * `PATCH /profile`: Updates user address details, Aadhaar number, and demographics.
-* `POST /redeem`: Deducts tokens from local profile and requests Sepolia burning.
+* `POST /redeem`: Deducts tokens from user profile to redeem marketplace items.
 
 #### Activity Submission Routes (`/form`)
 * `POST /electricity`: Logs electricity usage. Checks `homeType` and `carpetArea` features from the user profile, invokes the Python ML service, updates carbon footprint caches, and awards green tokens.
@@ -210,10 +203,8 @@ Authentication middleware validates Clerk's JWT bearer token under `Authorizatio
    - If new, the vehicle model and initial odometer values are saved (no tokens awarded).
    - If existing, the backend validates that the new odometer reading is higher than the previous one, calculates the distance covered, calls the ML service to determine carbon savings against the baseline, and awards green tokens.
 
-### 3. Smart Contract Tokens Minting & Burn/Redeem
+### 3. Green Tokens Minting & Redeem
 1. When users earn tokens, the database balance increments.
 2. When users redeem items from the store:
    - Express validates the token balance against the item cost.
-   - If valid, it sends a payload to `server.js` (listening locally on Port 5001).
-   - `server.js` calls the Sepolia smart contract via Ethers.js to burn the tokens.
-   - Upon successful on-chain transaction execution, the database balance is updated, and the transaction hash is returned.
+   - If valid, the database balance is updated, and the redeemed item is generated.

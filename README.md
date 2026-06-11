@@ -1,6 +1,6 @@
 # GreenLens – Track, Earn, and Give Back to the Planet 
 
-GreenLens is a modular, smart sustainability platform that helps users understand, track, and offset their carbon footprint. By logging daily activities like travel and energy conservation, users earn **Green Tokens** minted via smart contracts on the Ethereum Sepolia Testnet.
+GreenLens is a modular, smart sustainability platform that helps users understand, track, and offset their carbon footprint. By logging daily activities like travel and energy conservation, users earn **Green Tokens** to incentivize sustainability.
 
 ---
 
@@ -9,7 +9,6 @@ GreenLens is a modular, smart sustainability platform that helps users understan
 * **Frontend Client (Vercel)**: [greenlens-spuk.vercel.com](https://greenlens-spuk.vercel.com)
 * **Express Gateway Backend (Render)**: [greenlens-express-backend.onrender.com](https://greenlens-express-backend.onrender.com)
 * **AI/ML FastAPI Backend (Render)**: [greenlens-s4q8.onrender.com](https://greenlens-s4q8.onrender.com)
-* **Solidity Smart Contract (Sepolia)**: `0xe193Ab4CE56C329AB295ef3fC79a2bc6aBcf0dD8`
 
 ---
 
@@ -18,7 +17,7 @@ GreenLens is a modular, smart sustainability platform that helps users understan
 * **Activity Carbon Tracking**: Log travel distances, electricity units, and plant counts.
 * **AI OCR Invoice Scanning**: Auto-parse utility bills (PDFs/Images) using `pytesseract` and `fitz` OCR to extract data like Customer ID and usage.
 * **ML Footprint Verification**: Verify consumption savings against expected baseline benchmarks derived from a trained XGBoost ML model.
-* **On-Chain Blockchain Rewards**: Verified actions mint ERC-20 utility tokens on the Sepolia Testnet, which can be spent on green merchandise or burned to donate to registered NGOs.
+* **Green Rewards**: Verified actions earn tokens which can be spent on green merchandise or donated to registered NGOs.
 * **Cinematic Dashboard**: A premium, interactive dashboard showing carbon statistics, charts, badges, and real-time simulator predictions.
 
 ---
@@ -28,7 +27,6 @@ GreenLens is a modular, smart sustainability platform that helps users understan
 * **Frontend**: Next.js (React), TailwindCSS, Framer Motion, Recharts
 * **API Gateway**: Node.js + Express + MongoDB (Mongoose)
 * **AI / ML Engine**: Python (FastAPI), XGBoost, PyMuPDF, Pytesseract OCR
-* **Blockchain**: Solidity (ERC-20), Ethers.js, Sepolia Testnet (via Alchemy RPC)
 * **Authentication**: Clerk Auth Service
 * **File Uploads**: Cloudinary Storage Integration
 
@@ -53,11 +51,6 @@ NEXT_PUBLIC_ML_API_URL=https://greenlens-s4q8.onrender.com
 MONGODB_URI=mongodb+srv://...
 PORT=8080
 CORS_ORIGIN=https://greenlens-spuk.vercel.com
-ALCHEMY_URL=https://eth-sepolia.g.alchemy.com/v2/...
-PRIVATE_KEY=...
-CONTRACT_ADDRESS=0xe193Ab4CE56C329AB295ef3fC79a2bc6aBcf0dD8
-BLOCKCHAIN_PORT=5001
-BLOCKCHAIN_API_URL=http://localhost:5001
 ML_API_URL=https://greenlens-s4q8.onrender.com
 CLERK_SECRET_KEY=sk_test_...
 CLOUDINARY_CLOUD_NAME=...
@@ -69,12 +62,12 @@ CLOUDINARY_API_SECRET=...
 
 ## ⚙️ Developer Execution
 
-### 1. Run the Express & Blockchain Backend
+### 1. Run the Express Backend
 ```bash
 cd Backend
 npm install
 npm run dev      # Runs Express Gateway on Port 8080 (via nodemon)
-npm start        # Launches Express Gateway & Blockchain Daemon (Port 5001) Concurrently
+npm start        # Launches Express Gateway
 ```
 
 ### 2. Run the Python FastAPI Engine

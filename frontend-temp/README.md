@@ -12,11 +12,11 @@
 - *ML-Powered Verification:*  
   An *XGBoost model* validates submitted activities to ensure fair token assignment.  
 
-- *Blockchain Token Management:*  
-  Verified eco-friendly actions trigger *Green Token minting* via a *Solidity smart contract* on the *Sepolia testnet*, providing secure and transparent reward tracking.  
+- *Token Management:*  
+  Verified eco-friendly actions trigger *Green Token rewards* for secure and transparent reward tracking.  
 
 - *Redeem Tokens:*  
-  Users can redeem tokens for eco-friendly products or donate to verified NGOs. All redemptions are recorded on the blockchain for transparency.  
+  Users can redeem tokens for eco-friendly products or donate to verified NGOs.  
 
 - *AI Chatbot Assistance:*  
   An intelligent chatbot powered by *OpenAI SDK & Generative AI* helps users log activities, answer sustainability questions, and suggest eco-friendly actions.  
@@ -41,10 +41,6 @@
 - XGBoost (activity verification)  
 - Google Cloud Document AI (OCR extraction)  
 
-*Blockchain:*  
-- Solidity Smart Contracts  
-- Ethereum Sepolia Testnet  
-
 *Deployment / Hosting:*  
 - Vercel (Frontend)  
 - Render (Backend)  
@@ -63,8 +59,8 @@
 2. *Verify Actions:*  
    ML model checks the validity of submitted data.  
 
-3. *Mint Green Tokens:*  
-   Verified actions are rewarded via blockchain smart contracts.  
+3. *Earn Green Tokens:*  
+   Verified actions are rewarded with Green Tokens.  
 
 4. *Redeem Tokens:*  
    Tokens can be spent on eco-friendly products or donated to NGOs.  
@@ -76,7 +72,7 @@
 
 ## 💚 Impact
 
-GreenLens empowers individuals to take actionable steps toward sustainability while supporting NGOs and eco-startups. By merging blockchain transparency, ML verification, and gamified rewards, GreenLens turns climate awareness into measurable, real-world impact.  
+GreenLens empowers individuals to take actionable steps toward sustainability while supporting NGOs and eco-startups. By merging ML verification and gamified rewards, GreenLens turns climate awareness into measurable, real-world impact.  
 
 ---
 
